@@ -1,0 +1,29 @@
+docker pull --platform linux/amd64 mysql:5.7
+
+mysql --host=localhost --port=3306 --user=root --password=123123
+
+mysql> show databases;
+
+docker run -d --name wordpressdb -e MYSQL_ROOT_PASSWORD=123123 -e MYSQL_DATABASE=wordpress mysql:5.7
+docker run -d --name wordpressdb -e MYSQL_ROOT_PASSWORD=123123 -e MYSQL_DATABASE=wordpress mysql:8.0
+
+docker stop wordpress
+docker rm wordpress
+docker run -d -e WORDPRESS_DB_PASSWORD=123123 --name wordpress --link wordpressdb:mysql -p 48080:80 wordpress
+
+docker inspect -f '{{.State.Pid}}' wordpress
+sudo nsenter -t [container-pid] -n netstat -tupln
+sudo nsenter -t 11130 -n netstat -tupln
+
+docker run -i -t \
+--name mysql_attach_test \
+-e MYSQL_ROOT_PASSWORD=123123 \
+-e MYSQL_DATABASE=testdb \
+mysql:5.7
+
+docker exec -it wordpressdb /bin/bash
+docker exec -it wordpressdb mysql --host=localhost --port=3306 --user=root --password=123123
+
+docker exec wordpressdb mysql --host=localhost --port=3306 --user=root --password=123123 -e "show databases;"
+docker exec wordpress curl mysql:3306 --silent
+
