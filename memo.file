@@ -29,3 +29,96 @@ docker exec -it wordpressdb mysql --host=localhost --port=3306 --user=root --pas
 docker exec wordpressdb mysql --host=localhost --port=3306 --user=root --password=123123 -e "show databases;"
 docker exec wordpress curl mysql:3306 --silent
 
+---
+
+볼륨 3종류
+호스트와 볼륨 공유 : 마운트
+볼륨 컨테이너 : 볼륨으로 사용할 컨테이너를 생성
+도커가 관리하는 볼륨 : 도커 볼륨
+
+---
+
+# 호스트와 볼륨 공유
+
+docker run -d --name wordpressdb_hostvolume \
+-e MYSQL_ROOT_PASSWORD=123123 \
+-e MYSQL_DATABASE=wordpress \
+-v ~/space/wordpress_db:/var/lib/mysql \
+mysql:5.7
+
+docker run -d --name wordpress_hostvolume \
+-e WORDPRESS_DB_PASSWORD=123123 \
+--link wordpressdb_hostvolume:mysql \
+-p 48080:80 \
+wordpress
+
+ls ~/space/wordpress_db
+
+docker stop wordpressdb_hostvolume wordpress_hostvolume
+docker rm wordpressdb_hostvolume wordpress_hostvolume
+
+---
+
+# 파일 단위 볼륨 사용
+
+echo hello >> ~/space/hello && echo hello2 >> ~/space/hello2
+docker run -i -t --name file_volume \
+-v ~/space/hello:/hello \
+-v ~/space/hello2:/hello2 \
+ubuntu:14.04
+
+---
+
+# 도커 볼륨
+
+docker volume create --name myvolume
+docker volume ls
+
+docker run -it --name myvolume_1 -v myvolume:/root/ ubuntu:14.04
+echo "hello myvolume" >> /root/volume
+docker run -it --name myvolume_2 -v myvolume:/root/ ubuntu:14.04
+cat /root/volume
+
+---
+
+# 볼륨 정보 조회
+
+docker inspect --type volume myvolume
+ls /var/lib/docker/volumes/myvolume/_data
+cat /var/lib/docker/volumes/myvolume/_data/volume
+
+# 도커 볼륨 미지정 시, 도커 볼륨 자동 생성
+
+docker run -it --name volume_auto \
+-v /root \
+ubuntu:14.04
+docker volume ls
+docker container inspect volume_auto | grep -i source
+
+---
+
+# 사용하지 않는 볼륨 삭제
+docker volume prune
+
+---
+
+# mount 옵션
+
+docker run -it --name mount_option_1 \
+--mount type=volume,source=myvolume,target=/root \
+ubuntu:14.04
+
+# bind 에서, 상대 경로 안됨, 호스트 폴더 이미 존재해야 함
+mkdir -p /Users/user/space/wordpress_db
+docker run -it --name mount_option_2 \
+--mount type=bind,source=/Users/user/space/wordpress_db,target=/home/testdir \
+ubuntu:14.04
+
+---
+
+
+
+
+
+
+
