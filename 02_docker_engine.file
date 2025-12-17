@@ -31,10 +31,10 @@ docker exec wordpress curl mysql:3306 --silent
 
 ---
 
-볼륨 3종류
-호스트와 볼륨 공유 : 마운트
-볼륨 컨테이너 : 볼륨으로 사용할 컨테이너를 생성 => 생략
-도커가 관리하는 볼륨 : 도커 볼륨
+# 볼륨 사용 방법 3종류
+## 호스트와 볼륨 공유 : 마운트
+## 볼륨 컨테이너 : 볼륨으로 사용할 컨테이너를 생성 => 생략
+## 도커가 관리하는 볼륨 : 도커 볼륨
 
 ---
 
@@ -115,6 +115,160 @@ docker run -it --name mount_option_2 \
 ubuntu:14.04
 
 ---
+
+# 도커 네트워크
+
+# 도커는 컨테이너 내부 IP 를 순차적으로 할당
+# 컨테이너가 외부와 네트워크 통신을 위해 가상 네트워크 인터페이스를 생성
+# veth = 가상 네트워크 인터페이스
+# veth 호스트에 생성됨, 각 컨테이너 수만큼 vethxxx 생성됨, 도커 엔진이 자동 생성함
+
+# 근데, mac 도커 데스크탑 환경에서는 veth 인터페이스가 안보인단 말이지 !
+# ubuntu 컨테이너 하나를 host 네트워크 모드로 생성하면, vethxxx 인터페이스가 보임 !
+
+---
+
+# 도커 네트워크 드라이버
+# 브리지 bridge
+# 호스트 host
+# 논 none
+# 컨테이너 container
+
+---
+
+# bridge, host, none 3개가 기본적으로 있음
+# 이름/드라이버 = bridge/bridge, host/host, none/null
+docker network ls
+
+# 기본 도커 브리지이며, 이름이 bridge 인 도커 네트워크 정보를 조회
+docker network inspect bridge
+
+"Config": [ {
+    "Subnet": "172.17.0.0/16",
+    "Gateway": "172.17.0.1"
+}]
+...
+"Containers": {
+    "0925...": {
+        "Name": "docker_net_test_02",
+        "IPv4Address": "172.17.0.3/16",
+    },
+    "b710...": {
+        "Name": "docker_net_test_01",
+        "IPv4Address": "172.17.0.2/16",
+    }
+}
+...
+
+---
+
+# 브릿지
+
+# 컨테이너들은 연결된 브리지를 통해 외부와 통신 가능
+
+# 새로운 브리지 네트워크 생성
+docker network create --driver bridge mybridge
+docker network ls
+
+# mybridge 를 사용하는 컨테이너 생성, --net mybridge
+docker run -i -t -d --name mynetwork_container --net mybridge ubuntu:14.04
+docker exec -it mynetwork_container ifconfig
+
+# 컨테이너에 브릿지 연결, 해제 가능
+docker network disconnect mybridge mynetwork_container
+docker network connect mybridge mynetwork_container
+
+# 브릿지에 네트워크 임의 대역 설정 가능
+docker network create --driver=bridge \
+--subnet=172.72.0.0/16 \
+--ip-range=172.72.0.0/24 \
+--gateway=172.72.0.1 \
+my_custom_network
+docker network inspect my_custom_network
+
+---
+
+# 호스트 네트워크, --net host
+# 컨테이너에서 호스트의 네트워크 환경을 그대로 쓸 수 있다
+# host 라는 이름의 네트워크는 생성하지 않고, 도커 기본으로 있는 네트워크이다
+docker run -it --name network_host --net host ubuntu:14.04
+docker exec -it network_host ifconfig
+
+---
+
+# 논 네트워크, --net none
+# 컨테이너가 아무런 네트워크를 사용하지 않음
+# 외부와 연결이 단절됨
+
+# ifconfig 결과, 로컬 루프백만 있고, eth0 가 없음
+docker run -itd --name network_none --net none ubuntu:14.04
+docker exec -it network_none ifconfig
+
+---
+
+# 컨테이너 네트워크, --net container:xxx
+# 다른 컨테이너의 네트워크 네임스페이스 환경을 공유할 수 있다
+
+docker run -itd --name network_con1 ubuntu:14.04
+docker run -itd --name network_con2 --net container:network_con1 ubuntu:14.04
+
+# 맥주소, ip주소 모두 같다
+docker exec network_con1 ifconfig
+docker exec network_con2 ifconfig
+
+# 컨테이너 네트워크 사용 예시나, 장단점을 모르겠음 !
+
+---
+
+# 브릿지와 --net-alias 옵션
+# mybridge 같은 브릿지 사용, myalias01 같은 alias 사용
+docker run -itd --name network_alias_con1 --net mybridge --net-alias myalias01 ubuntu:14.04
+docker run -itd --name network_alias_con2 --net mybridge --net-alias myalias01 ubuntu:14.04
+docker run -itd --name network_alias_con3 --net mybridge --net-alias myalias01 ubuntu:14.04
+
+# ip 주소가 3개 모두 다름
+docker inspect --format='IPAddress: {{.NetworkSettings.Networks.mybridge.IPAddress}}' network_alias_con1
+docker inspect --format='IPAddress: {{.NetworkSettings.Networks.mybridge.IPAddress}}' network_alias_con2
+docker inspect --format='IPAddress: {{.NetworkSettings.Networks.mybridge.IPAddress}}' network_alias_con3
+
+# ping 확인을 위한 컨테이너 생성
+docker run -itd --name network_alias_ping --net mybridge ubuntu:14.04
+docker exec -it network_alias_ping /bin/bash
+ping -c 3 myalias01
+
+# 도커 내장 DNS
+# 도커는 사용자 정의 브리지 네트워크에 사용되는 내장 DNS 서버를 가짐
+
+# DNS IP 조회 도구 dig 사용
+docker exec -it network_alias_ping /bin/bash
+apt-get update && apt-get install dnsutils -y
+dig myalias01
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
