@@ -1,0 +1,57 @@
+# zsh docker 명령어 자동완성 기능 추가
+
+---
+
+# tab 했을 때 사용 예시, 사용할 수 있는 컨테이너 목록이 뜬다
+# docker run <tab>
+#04fb4b5cf6c7  -- 8.0             in mysql
+#5107333e08a8  -- 5.7             in mysql
+#55b7b4f7c5d6  -- 14.04           in ubuntu
+
+# 잘못된 자동완성 예시
+# docker r <tab>
+#rm   run
+
+---
+
+# 방법1: docker completion zsh 명령어를 사용해서 zsh 자동완성 파일을 만들어서 추가하는 방법
+# docker completion zsh > ~/.oh-my-zsh/completions/_docker
+# docker 공식 문서에서 권장하는 방법이지만, 사용하는 docker cli 버전에 맞춘 방법이라서, 자동완성 기능이 떨어질 수 있음
+
+# 방법2: zsh 플러그인 사용방법
+# .zshrc 파일에 plugins=(... docker ...) 추가
+# 마찬가지로 최신 자동완성 기능이 아닐 수 있음
+
+# 방법3: zsh 자동완성 파일을 최신 github 소스코드로 직접 교체하는 방법
+# .oh-my-zsh/completions 폴더에 파일을 추가하는 방법
+# 2025년 12월 기준, docker cli 자동완성 프로젝트가 이동되어서 그런지... 플러그인 방법으로 자동완성이 잘 안된다
+# 방법3 처럼, 직접 github 최신 스크립트를 추가하는것을 권장함
+
+---
+
+# 방법3 명령어
+
+# 폴더 없으면 만들고, _docker 파일 다운로드해서, 추가
+mkdir -p ~/.oh-my-zsh/completions
+curl -L https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/zsh/_docker > ~/.oh-my-zsh/completions/_docker
+
+# 권한이 높으면 기능 적용이 안될 수도 있으므로, 권한을 적절히 맞춰줌
+chmod 755 ~/.oh-my-zsh/completions
+chmod 644 ~/.oh-my-zsh/completions/_docker
+
+# 적용
+source ~/.zshrc
+
+---
+
+# 잘 안되는 경우, iterm 을 종료하고 재시작 해보면 이전 캐시가 제거 되므로 종료 후 재시작 해보면 좋다
+
+# 만약 꼬여서, 기존 기능을 제거해야 하는 경우
+rm -f ~/.zcompdump*
+source ~/.zshrc
+
+# 그래도 자동완성 파일을 직접 제거 하고 싶은 경우
+ls -al ~/.oh-my-zsh/completions/_docker
+ls -al ~/.oh-my-zsh/custom/completions/_docker
+ls -al ~/.oh-my-zsh/cache/completions/_docker
+ls -al ~/.oh-my-zsh/plugins/docker
