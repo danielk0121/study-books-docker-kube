@@ -1,0 +1,142 @@
+# mac m2 arm64, UTM, ubuntu vm, install docker
+# MAC os M1 에서 UTM 사용하여 우분투 vm 생성하고, 우분투에 도커 설치
+
+# 삽질
+# mac os 12.6.7, apple silicon m2 cpu
+# virtualBox 7.0.8 로 시도를 하다가 진행이 안되서 결국 UTM 으로 넘어옴
+
+# 진행이 안된 이유 몇가지
+# m2 cpu arm64 에 대한 버츄얼 박스 스테이블 버전이 없다 (2025년 12월 기준)
+# 제미나이도 m1, m2 에서 버츄얼 박스를 권장하지 않는다
+# 버츄얼 박스로 진행하면 ubuntu arm64 iso 파일로 부팅이 되지 않는다
+# apple silicon m1, m2, m3 등에서 발생하는 버츄얼박스 버그일 가능성이 크다고 함
+# ubuntu arm64 iso 이미지가 14 LTS 없음 (구글링 해보면 있었던거 같은데, tar.gz 압축파일만 있음)
+# ubuntu arm64 iso 이미지는 22, 24 등 최신 LTS 버전이 존재함
+
+# 결론
+# amd64 cpu 환경에서 vm 생성 후 사용하는게, 정신건강에 좋다
+
+---
+
+# 설치 환경
+# mac os 12.6.7
+# apple silicon m2 cpu
+# UTM 가상화 툴
+# ubuntu 24.04.3 arm64 iso 파일 사용
+# ubuntu server cli
+# docker cli
+
+---
+
+# UTM 으로 vm 머신 생성 방법은 생략
+
+---
+
+# UTM 에서 우분투 24 설치 중 이슈
+
+# 이상하게, vm 스펙을 cpu 1 core 사용하면, 우분투 설치하는 GUI 화면에서 뻗는다
+# 우분투 설치할 때만큼은 cpu 2 core, 메모리 2G 사용하자
+
+---
+
+# 우분투 서버 내에서 고정아이피 설정
+
+ifconfig
+2: enp0s1 또는 eth0 같은 이름을 메모해 두세요. (이하 enp0s1 기준)
+
+sudo vi /etc/netplan/50-cloud-init.yaml
+
+network:
+  version: 2
+  ethernets:
+    enp0s1:
+      dhcp4: no
+      addresses:
+        - 192.168.64.101/24
+      routes:
+        - to: default
+          via: 192.168.64.1
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 1.1.1.1
+
+sudo netplan try
+sudo netplan apply
+
+# ip 변경 확인 및 통신 확인, 재부팅 안해도 됨
+ifconfig
+ping -c 2 google.com
+
+---
+
+# 호스트명 변경
+
+# 호스트명 확인
+hostname
+
+# 127.0.1.1 에 있는 이름 변경
+sudo vi /etc/hosts
+sudo hostnamectl set-hosetname <변경호스트명>
+reboot
+
+# 변경된 호스트명 확인
+hostname
+cat /etc/hosts
+cat /etc/hostname
+
+---
+
+# 리눅스 cli 도커 설치
+# ubuntu 24.04.3 arm64 기준
+
+# root 계정으로 변경
+sudo su -
+
+# apt 업데이트
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y ca-certificates curl gnupg lsb-release
+
+# GPG 키 등록 시, apt-key add 명령어 deprecated 되서 적용 안됨 !
+# curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# GPG 키 등록, keyrings 폴더에 직접 gpg 키를 넣어야 함
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 저장소 추가 (M2 맥의 경우 자동으로 arm64가 인식됨)
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# apt update 에러 발생하는 경우, gpg 키 등록이 잘 못되었을 가능성이 큼
+sudo apt update && \
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 도커 설치 확인
+docker version
+docker run hello-world
+
+# 성능: UTM 설정에서 'Enable JIT'가 켜져 있는지 확인하세요. Docker 컨테이너 실행 속도가 더 빨라집니다.
+
+---
+
+# root 아닌 계정으로 도커 사용
+
+# 일반 계정 로그인 후
+# newgrp: 권한 변경 즉시 적용
+sudo usermod -aG docker $USER
+newgrp docker
+
+# 작동 확인
+docker ps -a
+
+---
+
+
+
+
+
+
