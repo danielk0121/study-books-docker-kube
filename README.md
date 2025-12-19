@@ -2,4 +2,4 @@
 
 [zsh_docker_cli_completion.file](zsh_docker_cli_completion.file)
 
-[m1_cpu_utm_ubuntu_docker.file](m1_cpu_utm_ubuntu_docker.file)
+[m2_cpu_utm_ubuntu_docker.file](m2_cpu_utm_ubuntu_docker.file)
