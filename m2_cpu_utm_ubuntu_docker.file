@@ -97,8 +97,9 @@ cat /etc/hostname
 sudo su -
 
 # apt 업데이트
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo apt update \
+&& sudo apt upgrade -y \
+&& sudo apt install -y ca-certificates curl gnupg lsb-release
 
 # GPG 키 등록 시, apt-key add 명령어 deprecated 되서 적용 안됨 !
 # curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
