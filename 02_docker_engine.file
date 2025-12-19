@@ -256,23 +256,22 @@ dig myalias01
 docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=1234 mysql:5.7
 docker logs mysql
 
-# 일부러 에러 발생
+# logs 명령어 활용, 일부러 컨테이너 에러 발생
 # start 로 다시 시작해도 실행 안됨
 # logs 명령어로 에러 원인 파악 가능
+# mysql 이미지는 비밀번호 설정 해줘야 실행됨
 docker run -d --name no_passwd_mysql mysql:5.7
 docker ps --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}"
 docker start no_passwd_mysql
 docker ps --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}"
 docker logs no_passwd_mysql
 
-# logs, tail
+# logs, tail 옵션
 docker logs --tail 2 mysql
+docker logs -f -t mysql
 
 # logs, since 옵션, 유닉스 타임
 docker logs --since 1766156400 mysql
-
-# logs, tail 추적
-docker logs -f -t mysql
 
 ---
 
@@ -339,10 +338,17 @@ docker run -it \
 
 ---
 
-# 로깅 드라이버 설정 가능
-# 드라이버 : syslog, journald, fluentd, awslogs 등
+# 로깅 드라이버
+# json-file
+# syslog, journald
+# fluentd
+# awslogs 등 => 생략
+
+---
+
+# --log-driver 옵션 사용
 # 로깅 드라이버는 기본적으로 json-file
-# --log-driver 옵션
+
 # 도커 데몬 시작 옵션 변경으로 적용할 수도 있음
 DOCKER_OPTS="--log-driver=syslog"
 DOCKER_OPTS="--log-opt max-size=10k --log-opt max-file=3"
@@ -352,17 +358,24 @@ DOCKER_OPTS="--log-opt max-size=10k --log-opt max-file=3"
 # syslog
 # 유닉스 계열 운영체제에서 로그를 수집하는 오랜 표준
 
-# syslog 조회
-# 우분투 14.04 /var/log/syslog
-# centos, rhel /var/log/messages
-# 우분투 16.04, coreOS journalctl -u docker.service
+# 리눅스 syslog 조회
+# 우분투 14.04 : /var/log/syslog
+# 우분투 16.04, coreOS : journalctl -u docker.service
+# centos, rhel : /var/log/messages
 
+---
+
+# syslog 테스트, echo 기록도 남는다
 docker run -d --name syslog_con --log-driver=syslog ubuntu:14.04
+tail /var/log/syslog
+echo asdf
 tail /var/log/syslog
 
 ---
 
-# syslog 원격에 저장하는 방법 중 하나, rsyslog 사용, 중앙 컨테이너로 로그를 모아보자
+# rsyslog
+# syslog 를 원격에 저장하는 방법 중 하나
+# 중앙 컨테이너로 로그를 모아보자
 
 # vm 2대 필요
 # 서버 호스트 vm 192.168.64.10
@@ -430,7 +443,7 @@ docker run -it --name=rsyslog_client_udp \
 --log-opt tag="mylog" \
 ubuntu:14.04
 
-# 왜 client 에서 syslog tcp 접속하면 로그가 안나갈까...
+# 왜 client 에서 syslog tcp 접속하면 로그가 안 찍힐까...
 
 # 컨테이너 이름 변경, tcp 다시 생성
 docker run -it --name=rsyslog_client_tcp \
