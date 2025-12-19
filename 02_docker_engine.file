@@ -365,8 +365,8 @@ tail /var/log/syslog
 # syslog 원격에 저장하는 방법 중 하나, rsyslog 사용, 중앙 컨테이너로 로그를 모아보자
 
 # vm 2대 필요
-# 서버 호스트 vm 192.168.0.100
-# 클라 호스트 vm 192.168.0.101
+# 서버 호스트 vm 192.168.64.10
+# 클라 호스트 vm 192.168.64.11
 
 ---
 
@@ -390,17 +390,61 @@ service rsyslog restart
 ---
 
 # 클라 vm
-docker run -it \
+docker run -it --name=rsyslog_client \
 --log-driver=syslog \
---log-opt syslog-address=tcp://192.168.0.100:514 \
+--log-opt syslog-address=tcp://192.168.64.10:514 \
 --log-opt tag="mylog" \
 ubuntu:14.04
 
 ---
 
-# 서버 vm, rsyslog 컨테이너, 로그 조회
+# 클라 vm, rsyslog_client 컨테이너
+docker exec -it rsyslog_client /bin/bash
+echo test
+
+# 서버 vm, rsyslog 컨테이너, echo test 로그가 찍힌다
 docker exec -it rsyslog_server /bin/bash
 tail /var/log/syslog
+
+---
+
+# 트러블 슈팅
+# rsyslog_client 컨테이너에서 echo test 했지만, rsyslog_server 컨테이너에서 로그 수집이 안됨
+
+# testvm11 내부(도커 밖)에서 실제 로그 서버로 수동 연결이 되는지 먼저 확인해야 합니다.
+# 성공
+nc -zv 192.168.64.10 514
+
+# UTM의 공유 네트워크 모드는 macOS의 가상 스위치를 거치기 때문에, 맥 호스트의 설정이 영향을 줄 수 있습니다.
+# 맥 시스템 설정: 시스템 설정 > 네트워크 > 방화벽이 켜져 있다면 일시적으로 끄고 테스트해 보세요.
+# 포트 충돌: 맥 호스트에서 이미 514 포트를 사용 중인 프로세스가 있는지 확인하세요.
+# 맥 터미널에서 실행
+# 성공
+sudo lsof -i :514
+
+# 클라 vm, tcp 대신 udp 사용
+# 서버에서 echo 로그가 찍힘, 성공 !
+docker run -it --name=rsyslog_client_udp \
+--log-driver=syslog \
+--log-opt syslog-address=udp://192.168.64.10:514 \
+--log-opt tag="mylog" \
+ubuntu:14.04
+
+# 왜 client 에서 syslog tcp 접속하면 로그가 안나갈까...
+
+# 컨테이너 이름 변경, tcp 다시 생성
+docker run -it --name=rsyslog_client_tcp \
+--log-driver=syslog \
+--log-opt syslog-address=tcp://192.168.64.10:514 \
+--log-opt tag="mylog" \
+ubuntu:14.04
+
+# 컨테이너 다시 생성 한 후, 로그 서버에 로그 찍히는 것을 확인
+# 컨테이너 run 할 때, rsyslog 서버에서 못 받아주는 상태이면, 컨테이너를 다시 생성해야 한다
+# 컨테이너를 stop start 해도 로그 전송이 안되는것으로 보인다
+
+# 결론
+# 클라이언트 컨테이너를 udp 모드로 생성 및 로그 수집 테스트 후, tcp 모드로 진행 하자
 
 ---
 
