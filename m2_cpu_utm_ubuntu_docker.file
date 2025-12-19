@@ -1,5 +1,5 @@
 # mac m2 arm64, UTM, ubuntu vm, install docker
-# MAC os M1 에서 UTM 사용하여 우분투 vm 생성하고, 우분투에 도커 설치
+# MAC os M2 에서 UTM 사용하여 우분투 vm 생성하고, 우분투에 도커 설치
 
 # 삽질
 # mac os 12.6.7, apple silicon m2 cpu
