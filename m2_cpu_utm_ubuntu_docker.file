@@ -39,6 +39,9 @@
 
 ---
 
+# ifconfig, vi, ping 설치
+sudo apt update && sudo apt install -y net-tools vim iputils-ping
+
 # 우분투 서버 내에서 고정아이피 설정
 
 ifconfig
