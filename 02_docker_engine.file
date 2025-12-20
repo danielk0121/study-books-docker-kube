@@ -472,7 +472,114 @@ fluentd 서버 192.168.0.101 -> 192.168.64.101
 
 ---
 
-todo...
+# 몽고서버, 몽고디비 컨테이너 생성
+docker run -h mongodb --name mongodb -d -p 27017:27017 mongo
+
+---
+
+# fluentd 서버, 호스트에서 conf 파일 생성
+vi fluent.conf
+<source>
+  @type forward
+</source>
+
+<match docker.**>
+  @type mongo
+  database nginx
+  collection access
+  host 192.168.64.102
+  port 27017
+  flush_interval 10s
+</match>
+
+# fluentd 서버, fluent.conf 파일이 있는 폴더에서, 컨테이너 생성
+# 도커 허브 fluentd 이미지는 몽고디비 플러그인이 없어서 alicek106 이미지 사용
+docker run -d -h fluentd --name fluentd -p 24224:24224 \
+-v $(pwd)/fluent.conf:/fluentd/etc/fluent.conf \
+-e FLUENTD_CONF=fluent.conf \
+alicek106/fluentd:mongo
+
+# alicek106 fluentd 이미지는 amd64 이미지라서 실행 불가 !
+# arm64 아키텍처에 맞는 이미지로 fluent 컨테이너 다시 생성
+# 아래 트러블 슈팅 참고
+docker run -d -h fluentd --name fluentd -p 24224:24224 \
+-v $(pwd)/fluent.conf:/fluentd/etc/fluent.conf \
+-e FLUENTD_CONF=fluent.conf \
+my-fluentd-mongo:v1.16-arm64
+
+---
+
+# 도커 서버, 로그 수집 컨테이너 생성
+docker run -h nginx --name nginx -p 80:80 -d \
+--log-driver=fluentd \
+--log-opt fluentd-address=192.168.64.101:24224 \
+--log-opt tag=docker.nginx.webserver \
+nginx
+
+---
+
+# 몽고 서버, 로그 수집 확인
+# 책에는 mongo 명령어 라고 되어있지만 not found, mongosh 명령어 사용
+docker exec -it mongodb mongosh
+show dbs
+use nginx
+show collections
+
+# json 출력이라서, 테이블 형식으로 보기
+# docker logs nginx 내용과 동일한 로그가 몽고디비에 저장된 것을 확인
+console.table(db['access'].find({}, { time:1, log:1, _id: 0 }).toArray())
+
+---
+
+# 트러블 슈팅, fluentd amd64, arm64 아키텍처 문제
+
+docker: Error response from daemon: image with reference alicek106/fluentd:mongo was found but does not provide the specified platform (linux/arm64)
+# alicek106/fluentd:mongo 는 amd64 라서 다시 빌드 해야됨
+
+# 책에 써진 주소로, github 도커 파일 확인 및 수정
+# https://github.com/alicek106/start-docker-kubernetes/blob/master/chapter2/fluentd_mongo/Dockerfile
+
+# 도커 파일 수정
+mkdir my-fluentd-mongo && vi Dockerfile
+
+# Dockerfile FROM 문에 --platform=linux/arm64 옵션만 붙여서 빌드하니까, pull 받는 도커 이미지가 arm64 가 아님
+# arm64 지원 이미지를 찾아됨
+# 도커 허브 fluent 홈페이지에서 arm64 지원 이미지 버전을 찾음
+
+# 이미지 메니페스트를 통해 arm64 지원 여부 확인
+docker manifest inspect fluent/fluentd:v1.16-debian-1
+
+# 도커 파일 다시 작성
+FROM --platform=linux/arm64 fluent/fluentd:v1.16-debian-1
+
+USER root
+
+# Debian 계열이므로 apt-get을 사용하여 필요한 빌드 도구 설치
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential ruby-dev && \
+    fluent-gem install fluent-plugin-mongo && \
+    apt-get purge -y --auto-remove build-essential ruby-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+EXPOSE 24284
+
+USER fluent
+
+CMD exec fluentd -c /fluentd/etc/$FLUENTD_CONF -p /fluentd/plugins $FLUENTD_OPT
+
+# 도커 이미지 빌드, prune 으로 로컬 이미지 캐시를 삭제 !
+docker builder prune -a -f
+docker build -t my-fluentd-mongo:v1.16-arm64 .
+
+# 로컬에 생성된 이미지가 arm64 지원하는 이미지인지 확인
+docker inspect my-fluentd-mongo:v1.16-arm64 | grep Architecture
+
+# manifest inspect VS inspect
+# inspect는 내 컴퓨터(로컬)에 있는 구체적인 상태를 보고,
+# manifest inspect는 원격 저장소(도커 허브 등)에 있는 설계도를 미리 보는 것입니다.
+
+---
+
 
 
 
