@@ -580,6 +580,11 @@ docker inspect my-fluentd-mongo:v1.16-arm64 | grep Architecture
 
 ---
 
+# 컨테이너 자원 할당 제한
+
+---
+
+todo...
 
 
 
