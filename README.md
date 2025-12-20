@@ -4,6 +4,13 @@
 - [zsh_docker_cli_completion.file](zsh_docker_cli_completion.file)
 - [m2_cpu_utm_ubuntu_docker.file](m2_cpu_utm_ubuntu_docker.file)
 
+## 목적
+- 책완독
+- 도커 사용 이해
+- 컨테이너 사용의 한계점 파악
+- 알파인, 비지박스, 데비안 등 이해
+- 노트북 로컬 환경으로 쿠버 테스트 구축
+
 ## 참고
 - 2020년 초판 발행, 작업은 2025년 12월 시작
 - 책은 amd64, 우분투 14 기준으로 작성됨
