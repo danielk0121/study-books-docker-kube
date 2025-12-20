@@ -12,6 +12,7 @@
 - m2 맥북에서 vm 올리는 내용은 [m2_cpu_utm_ubuntu_docker.file](m2_cpu_utm_ubuntu_docker.file) 참고
 - 최대한 m2 arm64 UTM vm 기준으로 진행하되, 필요하다면 윈도우 amd64 pc 를 사용할 예정
 - 애플 UTM 버그 진짜 많다...
+- UTM 에 스냅샷 기능이 없는건지, vm 복제만 있음, 맥북 디스크 용량 걱정됨
 
 ## 주요 이슈
 - 책 예제에서 사용하는 mysql 5.7 이미지가 amd64 이미지
