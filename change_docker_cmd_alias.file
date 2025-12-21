@@ -1,0 +1,20 @@
+# 도커 명령어 alias 설정
+
+# 쉘 확인, zsh, bash
+echo $SHELL
+/bin/zsh
+# /bin/bash
+
+# rc 파일 수정, zshrc, bashrc
+vi ~/.zshrc
+# vi ~/.bashrc
+
+# 파일 맨 아래에 추가
+alias d='docker'
+
+# 적용
+source ~/.zshrc
+
+# 확인
+# docker ps
+d ps
