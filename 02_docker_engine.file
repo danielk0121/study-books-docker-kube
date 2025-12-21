@@ -584,13 +584,202 @@ docker inspect my-fluentd-mongo:v1.16-arm64 | grep Architecture
 
 ---
 
-todo...
+# 아래 부터 docker 명령어를 d 로 alias 해서 사용
 
+---
 
+# 컨테이너에 설정된 자원 제한 확인 방법, docker inspect
+d inspect rsyslog_server
+d inspect --format='{{json .HostConfig}}' rsyslog_server | jq
 
+# 생성된 컨테이너 자원 제한 변경은 update
+docker update --cpuset-cpus=1 centos ubuntu
 
+---
 
+# 컨테이너 메모리 제한
 
+# --memory 옵션, 최소값 4MB
+d run -d --memory="1g" --name memory_1g nginx
+
+# 확인
+d inspect memory_1g | grep \"Memory\"
+
+---
+
+# 메모리 4M mysql 실행, 6MB 최소값이라서 에러
+d run -d --name memory_4m --memory="4m" mysql:5.7
+docker: Error response from daemon: Minimum memory limit allowed is 6MB.
+
+# mysql 실행하기에 메모리가 적어서 종료됨
+d run -d --name memory_10m --memory="10m" mysql:5.7
+d ps -a | grep memory_
+
+---
+
+# swap 메모리
+
+# 기본적으로 메모리의 2배로 설정됨
+# 하지만 각각 지정 가능
+d run -it --name swap_500m \
+--memory=200m \
+--memory-swap=500m \
+ubuntu:14.04
+
+---
+
+# 컨테이너 CPU 제한
+
+---
+
+# --cpu-shares 옵션
+
+# 비중만큼 나눠 쓸 것인지 명시
+# 다른 컨테이너들의 cpu-shares 옵션 값에 비례해서 설정됨
+
+d run -it --name cpu_share \
+--cpu-shares 1024 \
+ubuntu:14.04
+
+---
+
+# --cpu-shares 옵션 테스트
+
+# cpu 1개 가지는 호스트에서 테스트
+# vm 1대 필요
+# alicek106/stress 이미지 사용
+
+# cpu 부하 컨테이너 실행
+d run -d --name cpu_1024 \
+--cpu-shares 1024 \
+alicek106/stress stress --cpu 1
+
+# 호스트, cpu 사용률 확인
+tester@dockerpc:~$ ps aux | grep stress
+root        1376  0.0  0.1   2440  1152 ?        Ss   08:59   0:00 stress --cpu 1
+root        1397 98.8  0.0   2440   256 ?        R    08:59   0:17 stress --cpu 1
+
+# 또 컨테이너 생성
+d run -d --name cpu_512 \
+--cpu-shares 512 \
+alicek106/stress stress --cpu 1
+
+# 시간이 흐르면, 2:1 비율로 cpu 사용중 확인
+# 대략 15분
+tester@dockerpc:~$ ps aux | grep stress | grep -v grep | grep -v watch
+root        1376  0.0  0.1   2440  1152 ?        Ss   08:59   0:00 stress --cpu 1
+root        1397 71.7  0.0   2440   256 ?        R    08:59  16:14 stress --cpu 1
+root        2933  0.0  0.1   2440  1152 ?        Ss   09:05   0:00 stress --cpu 1
+root        2953 36.5  0.0   2440   128 ?        R    09:05   6:04 stress --cpu 1
+
+---
+
+# alicek106/stress 이미지
+
+# stress 가 설치된 우분투 이미지
+# -d 옵션으로 생성되어 백그라운드에서 계속 cpu 부하를 줌
+# 테스트 후 종료, 삭제 필요 !
+apt-get install -y stress
+
+---
+
+# --cpuset-cpu 옵션
+
+# 컨테이너가 특정 cpu 만 사용하도록 설정 가능
+# 호스트가 멀티 cpu 사용
+
+--
+
+# 테스트를 위해, cpu 4개 호스트 필요
+# vm 1대 필요
+
+# cpu 번호는 0번부터 시작
+# 2 이므로 4 코어 중에 3번째 cpu 사용
+d run -d --name cpuset_2 \
+--cpuset-cpus=2 \
+alicek106/stress \
+stress --cpu 1
+
+# 개별 cpu 사용 확인을 위해 htop 설치
+sudo apt-get install -y htop
+
+# 조회
+htop
+
+---
+
+# --cpu-period, --cpu-quota 옵션
+
+# CFS : Completely Fair Scheduler
+# 컨테이너의 CFS 주기는 기본적으로 100 ms
+# --cpu-period, --cpu-quota 옵션으로 주기 변경 가능
+
+# CFS 는, CPU 시간 할당 받는 주기를 뜻함
+
+# --cpu-period=100000 : 기본값 10만, 100 ms 의미
+# --cpu-quota=25000 : cpu 주기 할당값, 1/4 로 줄었으므로, 성능이 1/4로 감소
+# 즉, 컨테이너는 [quota 값] / [period 값] 만큼 cpu 시간을 할당 받음
+
+# cpu 1개짜리 vm 준비
+
+# 1/4 짜리
+d run -d --name quota_1_4 \
+--cpu-period=100000 --cpu-quota=25000 \
+alicek106/stress stress --cpu 1
+
+# 1/1 짜리
+d run -d --name quota_1_1 \
+--cpu-period=100000 --cpu-quota=100000 \
+alicek106/stress stress --cpu 1
+
+# 확인, 24.9 짜리, 1/4 사용을 확인
+tester@dockerpc:~$ ps aux | grep stress
+root        1391  0.0  0.1   2440  1024 ?        Ss   09:35   0:00 stress --cpu 1
+root        1412 24.9  0.0   2440   128 ?        R    09:35   0:17 stress --cpu 1
+root        1533  0.0  0.1   2440  1024 ?        Ss   09:36   0:00 stress --cpu 1
+root        1551 73.2  0.0   2440   128 ?        R    09:36   0:35 stress --cpu 1
+
+---
+
+# --cpus 옵션
+
+# CFS 를 직관적으로 적용 가능
+
+# 50% 사용
+d run -d --name cpus_container \
+--cpus=0.5 \
+alicek106/stress \
+stress --cpu 1
+
+# 확인, 50.1 짜리, 50% 사용을 확인
+tester@dockerpc:~$ ps aux | grep stress
+root        3246  0.0  0.1   2440  1024 ?        Ss   09:41   0:00 stress --cpu 1
+root        3265 50.1  0.0   2440   128 ?        R    09:41   0:09 stress --cpu 1
+
+---
+
+# Block I/O 제한
+
+# 옵션들
+# --device-write-bps
+# --device-read-bps
+# --device-write-iops
+# --device-read-iops
+
+# 컨테이너 생성시 기본값은 파일 read, write 대역폭 제한 설정 없음
+# 즉, 기본값이 무제한
+
+# 예시
+# bps 초당 쓰기 작업 최대치가 1MB 로 제한
+# /dev/xvda:1mb => [디바이스이름]:[값] 형태 사용
+# /dev/xvda 디바이스 인 이유는 테스트로 aws ec2 사용했기 때문
+d run -it --device-write-bps /dev/xvda:1mb ubuntu:14.04
+
+# 실습 생략
+
+# 컨테이너 저장 공간 제한은 책 뒤에 설명
+
+---
 
 
 
