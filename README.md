@@ -8,12 +8,13 @@
 - [zsh_docker_cli_completion.file](zsh_docker_cli_completion.file)
 - [m2_cpu_utm_ubuntu_docker.file](m2_cpu_utm_ubuntu_docker.file)
 - [change_docker_cmd_alias.file](change_docker_cmd_alias.file)
+- [docker_image_alpine.file](docker_image_alpine.file)
 
 ## 목적
 - 책완독
 - 도커 사용 이해
 - 컨테이너 사용의 한계점 파악
-- 알파인, 비지박스, 데비안 등 이해
+- alpine, busybox, debian 등 차이점 이해
 - 노트북 로컬 환경으로 쿠버 테스트 구축
 
 ## 참고
