@@ -1,8 +1,12 @@
 # 책, 시작하세요 도커/쿠버네티스, 실습과 요약
 
+
 ## 책 내용
 - [02_02_docker_container.file](02_02_docker_container.file)
 - [02_03_docker_image.file](02_03_docker_image.file)
+- [02_04_dockerfile.file](02_04_dockerfile.file)
+- [02_05_docker_daemon.file](02_05_docker_daemon.file)
+
 
 ## 추가 작업 파일
 - [zsh_docker_cli_completion.file](zsh_docker_cli_completion.file)
@@ -10,12 +14,14 @@
 - [change_docker_cmd_alias.file](change_docker_cmd_alias.file)
 - [docker_image_alpine.file](docker_image_alpine.file)
 
+---
 ## 목적
 - 책완독
 - 도커 사용 이해
 - 컨테이너 사용의 한계점 파악
 - alpine, busybox, debian 등 차이점 이해
 - 노트북 로컬 환경으로 쿠버 테스트 구축
+
 
 ## 참고
 - 조금 오래된 책
@@ -38,6 +44,7 @@
   - 책 예제에서 aws 사용이 종종 된다
   - 일단 최대한 피하는 중
   - 아마 도커 사설 레포 사용 부터는 aws 필요할 듯
+
 
 ## 주요 이슈
 - 책 예제에서 사용하는 mysql 5.7 이미지가 amd64 이미지
