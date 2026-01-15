@@ -3,3 +3,313 @@
 
 ---
 
+# 도커 허브
+# public 한 도커 이미지 저장소
+# private 저장소 사용시, 유료
+# 도커 이미지 저장소 직접 구축, 비공개 사용 가능
+
+---
+# 이미지 검색
+docker search ubuntu
+
+---
+# 이미지로 만들 컨테이너 생성
+docker run -it --name commit_test ubuntu:14.04
+echo test_first! > first
+
+# 컨테이너를 이미지로 만듬, -a 옵션 author
+docker commit \
+-a "danielk" -m "my first test commit" \
+commit_test \
+commit_test:first
+
+# 이미지 생성 확인, 레포:태그 commit_test:first 생성됨
+docker images
+
+# 테스트 이미지로 컨테이너 생성 후, 또 파일 추가
+docker run -it --name commit_test2 commit_test:first
+echo test_second! > second
+
+docker commit \
+-a "danielk" -m "add second file" \
+commit_test2 \
+commit_test:second
+
+# 이미지 생성 확인, 레포:태그 commit_test:second 생성됨
+# first, second 2개 이미지가 있음
+docker images
+
+---
+# docker inspect 로 이미지 구조 이해
+# Layers 항목
+docker inspect ubuntu:14.04
+docker inspect commit_test:first
+docker inspect commit_test:second
+
+# docker history, 레이어 구조 확인 가능
+# image Id, size, commit message 등이 나옴
+docker history commit_test:second
+
+# 댕글랭 이미지, dangling
+# 사용중인 이미지를 강제로 삭제하면 이미지 이름이 none 이 됨
+# docker rmi -f <이미지 이름>
+
+# 댕글랭 이미지 확인
+docker images -f danling=true
+
+# 댕글랭 이미지 한꺼번에 삭제
+docker image prune
+
+---
+# 이미지 추출
+
+# 이미지를 파일로 추출
+docker save -o ubuntu_14_04.tar ubuntu:14.04
+
+# 파일을 다시 이지미로 로드
+docker load -i ubuntu_14_04.tar
+
+# 유사하게, export, import 도 있음
+# 컨테이너를 파일, 이미지로 만드는 것
+# 레이어 구조가 없어지기 때문에, 이미지 용량이 커짐
+docker export -o rootFs.tar mycontainer
+docker import rootFS.tar myimage:0.0
+
+---
+# 이미지 배포
+
+# 도커 허브
+# docker push, pull, 올리고 내려받기 편리함
+# 단, 비공개 저장소는 유료 혹은 제한이 있음
+
+# 도커 사설 레지스트리, docker private registry
+# 사용자가 직접 만든 이미지 저장소
+
+---
+# 이미지 cpu 아키텍처 확인
+# amd64, arm64 등
+docker inspect ubuntu:14.04 | grep Architecture
+
+---
+# 이미지 저장소(repository) 생성
+# 도커 허브 가입 > create repository
+# 공개 저장소, 비공개 저장소 선택
+# 비공개 저장소는 1개만 무료
+# 저장소 이름 형식 : account_name/my-image-name
+# 즉, 저장소 1개당 이미지 1개
+
+---
+# 저장소에 이미지 올리기
+
+# 컨테이너 생성
+docker run -it --name commit_container1 ubuntu:14.04
+echo my first push >> test
+
+# 커밋
+docker commit commit_container1 my-image-name:0.0
+
+# tag 명령어, 이미지 이름 추가
+docker tag my-image-name:0.0 account_name/my-image-name:0.0
+
+# 도커 허브 로그인
+# 로그인 정보 : /계정명/.docker/config.json
+# docker logout 하면 로그인 정보 삭제
+docker login
+username: xxx
+password: xxx
+
+# 도커 허브에 push
+# 브라우저로 도커 허브에서 확인
+docker push account_name/my-image-name:0.0
+
+---
+# 조직, 팀원 관리
+
+# 도커 허브에서 관리 가능
+# 조직 > 팀 > 저장소 > 멤버
+# 필요시 사용, 여기서는 생략
+
+---
+# 저장소 웹훅 추가, webhook
+
+# 저장소에 이미지가 push 되었을 때, 특정 url 로 요청을 전송
+# 도커 허브에서 설정 가능
+# 마찬가지로 생략
+
+---
+# 도커 사설 레지스트리
+
+# 개인 서버에 이미지를 저장하는 저장소를 만들 수 있음
+# 컨테이너 기반
+# 기본 포트 5000번
+# rest api 기본 제공
+docker run -d --name myregistry -p 5000:5000 --restart=always registry:2.6
+curl localhost:5000/v2/
+
+# 사설 레지스트리에 이미지 push
+# tag 이후 push
+docker tag my-image-name:0.0 <docker_host_ip>:5000/my-image-name:0.0
+docker push <docker_host_ip>:5000/my-image-name:0.0
+
+# 하지만, 이미지 push 안됨 !
+# 기본적으로 도커 데몬은 https 를 사용하지 않는 레지스트리 컨테이너에 접근하지 못함
+# https 인증서 사용 내용은 추후 다시 설명
+# https 사용하지 않아도 push/pull 되도록, 도커 엔진 재시작
+DOCKER_OPT="--insecure-registry=192.168.0.101:5000"
+docker push <docker_host_ip>:5000/my-image-name:0.0
+
+# docker pull 할때도 insecure 마찬가지 적용
+docker pull <docker_host_ip>:5000/my-image-name:0.0
+
+---
+# nginx 서버로 접근 권한 생성
+
+# 레지스트리 컨테이너 자체에서 인증 정보 설정 가능
+# 하지만, 여기서는 nginx 서버 컨테이너 생성 후 레지스트리 컨테이너와 연동하는 방식 사용
+
+---
+# https 에 사용할 인증서 생성
+
+# self-signed root 인증서 ca 파일 생성
+# 입력 칸에 전부 공백
+mkdir certs
+openssl genrsa -out ./cert/ca.key 2048
+openssl req -x509 -new -key ./certs/ca.key -days 10000 -out ./certs/ca/crt
+
+# root 인증서로 레지스트리 컨테이너에 사용될 인증서 생성
+# <docker_host_ip> 에 레지스트리 컨테이너가 존재하는 도커 호스트 ip 입력
+# <docker_host_ip> 이 ip 로 nginx 컨테이너에 접근 할 것
+export DOCKER_HOST_IP=192.168.0.101
+openssl genrsa -out ./certs/domain.key 2048
+openssl -req -new -key ./certs/domain.key -subj /CN=${DOCKER_HOST_IP} -out ./cert/domain/csr
+echo subjectAltName = IP:${DOCKER_HOST_IP} > extfile.cnf
+openssl x509 -req -in ./cert/domain.csr \
+ -CA ./certs/ca.crt \
+ -CAkey ./certs/ca.key \
+ -CAcreateserial -out ./certs/domain.crt \
+ -days 10000 -extfile extfile.cnf
+
+# 레지스트리 로그인 계정 비밀번호 저장 파일
+htpasswd -c htpasswd <username>
+password:
+
+# htpasswd 없으면 설치
+데비안, 우분투 : apt-get install apache2-utils
+레드햇, centos : yum install httpd-tools
+
+---
+# nginx 설정
+
+# nginx.conf 파일 저장
+# 레지스트리 컨테이너로의 프록시 설정
+# ${DOCKER_HOST_IP} 수정
+vi certs/nginx.conf
+
+upstream docker-registry {
+  server registry:5000;
+}
+server {
+  listen 443;
+  server_name ${DOCKER_HOST_IP};
+  ssl on;
+  ssl_certificate /etc/nginx/conf.d/domain.crt;
+  ssl_certificate_key /etc/nginx/conf.d/domain.key;
+  client_max_body_size 0;
+  chunked_transfer_encoding on;
+
+  location /v2/ {
+    if ($http_user_agent ~ "^(docker\/1\.(3|4|5(?!\.[0-9]-dev))|Go ).*$" ) {
+      return 404;
+    }
+    auth_basic "registry.localhost";
+    auth_basic_user_file /etc/nginx/conf.d/htpasswd;
+    add_header 'Docker-Distribution-Api-Version' 'registry/2.0' always;
+
+    proxy_pass http://docker-registry;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 900;
+  }
+}
+
+---
+# 레지스트리 컨테이너와 nginx 연결
+
+# 혼동을 피하고자 기존 레지스트리 컨테이너 삭제 후 다시 생성
+docker stop myregistry; docker rm myregistry
+docker run -d --name myregistry --restart-always registry:2.6
+
+# nginx 컨테이너 생성
+# certs 폴더 파일 : nginx.conf, domain.crt, domain.key
+docker run -d --name nginx_frontend -p 443:443 \
+ --link myregistry:registry
+ -v $(pwd)/certs/:/etc/nginx/conf.d \
+ nginx:1.9
+
+# nginx 실행 확인
+docker ps -a | grep -E "nginx|registry"
+
+---
+# 도커 사설 레지스트리 컨테이너 로그인
+# 로그인 되어도, 신뢰할 수 없는 인증서인 self-signed 인증서라서, 에러 출력
+docker login https:192.168.0.100
+username: xxx
+password: xxx
+login error !
+
+# 신뢰할 수 있는 인증서 목록에 추가
+# 데비안, 우분투
+cp-certs/ca.crt /usr/local/share/ca-certificates/
+update-ca-certificates
+# 레드햇, centos
+cp certs/ca.crt /etc/pki/ca-trust/source/anchors/
+update-ca-trust
+
+# 인증서 추가 후, 도커 재시작, nginx 컨테이너 재시작
+service docker restart
+docker start nginx_frontend
+
+# 다시 도커 로그인
+docker login 192.168.0.100
+username: xxx
+password: xxx
+login succeeded
+
+---
+# 드디어, 사설에 이미지 push
+# login 에서 https 했으므로, https 적어줄 필요 없음
+docker tag my-image-name:0.0 192.168.0.100/my-image-name:0.0
+docker push 192.168.0.100/my-image-name:0.0
+
+---
+# 사설 레지스트리 restful api
+
+# 도커 사설 레지스트리 관리
+# 미리 만들어놓은 레지스트리 관리 cli 사용도 가능, docker registry cli 키워드로 검색
+
+# 대표적인 api 몇개만 살펴봄
+# 이미지 목록
+curl 192.168.0.100:5000/v2/_catalog
+# 이미지 목록, 태그로 조회
+curl 192.168.0.100:5000/v2/my-image-name/tags/list
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
