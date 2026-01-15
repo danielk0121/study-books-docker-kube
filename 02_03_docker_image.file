@@ -41,16 +41,21 @@ docker images
 
 ---
 # docker inspect 로 이미지 구조 이해
+
 # Layers 항목
+# 이미지에 기록된 각 레이어 목록들이 해쉬코드로 나온다
 docker inspect ubuntu:14.04
 docker inspect commit_test:first
 docker inspect commit_test:second
 
-# docker history, 레이어 구조 확인 가능
+# docker history
+# inspect 명령어로 레이어 구조 확인이 복잡함, history 명령어 사용
 # image Id, size, commit message 등이 나옴
 docker history commit_test:second
 
+---
 # 댕글랭 이미지, dangling
+
 # 사용중인 이미지를 강제로 삭제하면 이미지 이름이 none 이 됨
 # docker rmi -f <이미지 이름>
 
@@ -87,11 +92,13 @@ docker import rootFS.tar myimage:0.0
 
 ---
 # 이미지 cpu 아키텍처 확인
+
 # amd64, arm64 등
 docker inspect ubuntu:14.04 | grep Architecture
 
 ---
 # 이미지 저장소(repository) 생성
+
 # 도커 허브 가입 > create repository
 # 공개 저장소, 비공개 저장소 선택
 # 비공개 저장소는 1개만 무료
@@ -100,7 +107,8 @@ docker inspect ubuntu:14.04 | grep Architecture
 
 ---
 # 저장소에 이미지 올리기
-# 비공개 저장소에 올리는 것으로 테스트
+
+# 여기서는 비공개 저장소에 올리는 것으로 테스트
 
 # 컨테이너 생성
 docker run -it --name commit_container1 ubuntu:14.04
@@ -130,6 +138,7 @@ docker push danielk0121/my-image-name:0.0
 
 # 도커 허브에서 관리 가능
 # 조직 > 팀 > 저장소 > 멤버
+
 # 필요시 사용, 여기서는 생략
 
 ---
@@ -137,14 +146,15 @@ docker push danielk0121/my-image-name:0.0
 
 # 저장소에 이미지가 push 되었을 때, 특정 url 로 요청을 전송
 # 도커 허브에서 설정 가능
+
 # 마찬가지로 생략
 
 ---
 # 도커 사설 레지스트리
 
 # 개인 서버에 이미지를 저장하는 저장소를 만들 수 있음
-# 컨테이너 기반
-# 기본 포트 5000번
+
+# 컨테이너 기반, 기본 포트 5000번
 # 맥북 에어플레이 수신 모드 컨트롤러가 5000 사용하므로, 55000 번 사용
 # rest api 기본 제공
 docker run -d --name myregistry -p 55000:5000 --restart=always registry:2.6
@@ -159,12 +169,12 @@ docker push $DOCKER_HOST_IP:55000/my-image-name:0.0
 # 하지만, 이미지 push 안됨 !
 # 기본적으로 도커 데몬은 https 를 사용하지 않는 레지스트리 컨테이너에 접근하지 못함
 # https 인증서 사용 내용은 추후 다시 설명
-# https 사용하지 않아도 push/pull 되도록, 도커 엔진 재시작
-# ! 맥 도커 데스크탑 환경에서는 적용 안됨, 아래 트러블슈팅 참고 !
+# https 사용하지 않아도 push/pull 되도록, DOCKER_OPT 설정 후 도커 엔진 재시작
+# 하지만, 맥 도커 데스크탑 환경에서는 적용 안됨, 아래 트러블슈팅 참고 !
 DOCKER_OPT="--insecure-registry=$DOCKER_HOST_IP:55000"; echo $DOCKER_OPT
 
 # push 시도
-docker push $DOCKER_HOST_IP:55000/my-image-name:0.0
+docker push $DOCKER_HOST_IP:55000/my-image-name:0.0dddd
 
 # docker pull 할때도 insecure 마찬가지 적용
 docker pull $DOCKER_HOST_IP:55000/my-image-name:0.0
@@ -172,9 +182,11 @@ docker pull $DOCKER_HOST_IP:55000/my-image-name:0.0
 ---
 # 트러블슈팅, 맥 도커 데스크탑 환경에서 docker 엔진 옵션 설정
 
+# 문제
 # DOCKER_OPT 설정 이후 도커 데스크탑을 재시작해서 도커 엔진 재시작을 노렸지만
 # DOCKER_OPT 설정이 먹히지 않았다
 
+# 배경 지식
 # 리눅스(서버): 예전 리눅스 환경에서는 /etc/default/docker 같은
 #  파일에 DOCKER_OPTS 변수를 선언해두면 Docker 서비스가 시작될 때 이를 읽어갔습니다.
 
@@ -218,14 +230,17 @@ openssl x509 -req -in ./certs/domain.csr \
 
 ---
 # 레지스트리에 로그인할 때 사용할, 계정과 비밀번호 저장 파일 생성
+
+# htpasswd 라는 파일이 만들어짐 !
 htpasswd -c htpasswd <username>
 htpasswd -c htpasswd danielk0121
-password:
+password: xxx
 
 # htpasswd 없으면 설치
 데비안, 우분투 : apt-get install apache2-utils
 레드햇, centos : yum install httpd-tools
 
+# htpasswd는 설명
 # htpasswd는 Apache HTTP 서버의 사용자 인증을 위한 이름과 비밀번호를 관리하는 CLI 도구입니다.
 # Apache 공식 문서에 따르면 주로 HTTP 기본 인증(Basic Authentication)에 사용할 사용자 목록을 만들고 업데이트하는 데 사용됩니다.
 cat htpasswd
@@ -288,7 +303,8 @@ docker stop myregistry; docker rm myregistry
 docker run -d --name myregistry -p 55000:5000 --restart=always registry:2.6
 
 # nginx 컨테이너 생성
-# certs 폴더 파일 : ca.crt, ca.key, ca.srl, domain.crt, domain.key, domain.csr, nginx.conf, htpasswd
+# certs 폴더 파일 중 인증서 파일 : ca.crt, ca.key, ca.srl, domain.crt, domain.key, domain.csr
+# certs 폴더 파일 중 웹서버 파일 : nginx.conf, htpasswd
 docker run -d --name nginx_frontend -p 443:443 \
  --link myregistry:registry \
  -v $(pwd)/certs/:/etc/nginx/conf.d \
@@ -315,6 +331,7 @@ Error response from daemon !
 
 ---
 # 신뢰할 수 있는 인증서 목록에 추가
+
 # 데비안, 우분투
 cp-certs/ca.crt /usr/local/share/ca-certificates/
 update-ca-certificates
@@ -326,6 +343,8 @@ update-ca-trust
 service docker restart
 docker start nginx_frontend
 
+# 맥북, 도커 데스크탑인 경우 아래 트러블 슈팅 참고 !
+
 ---
 # 다시 도커 로그인
 docker login 192.168.0.34
@@ -334,17 +353,16 @@ password: xxx
 login succeeded
 
 ---
-# 트러블 슈팅, 리눅스가 아니라 맥북, 도커 데스크탑 환경인 경우, 인증서 신뢰
+# 트러블 슈팅, 리눅스가 아니라 맥북, 도커 데스크탑 환경인 경우, 인증서 신뢰 설정
 
 # 1단계, 맥 터미널에서 ca.crt 신뢰하도록 설정
-# 맥북 호스트 시스템에 키체인 등록
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./ca.crt
+# 맥북 호스트 시스템에 키체인 등록, 터미널 재시작 필요
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./domain.crt
 
 # 2단계, 도커 데스크탑 엔진에 등록
-
-# 주소가 192.168.0.34:55000 인 경우 예시
-mkdir -p ~/.docker/certs.d/192.168.0.34:55000
-cp ca.crt ~/.docker/certs.d/192.168.0.34:55000/ca.crt
+# 주소가 192.168.0.34 인 경우 예시
+mkdir -p ~/.docker/certs.d/192.168.0.34:443
+cp domain.crt ~/.docker/certs.d/192.168.0.34:443/domain.crt
 
 ---
 # 드디어, 사설에 이미지 push
@@ -372,6 +390,14 @@ curl 192.168.0.34:55000/v2/my-image-name/tags/list
 ---
 # nginx 통해서 https 요청으로 curl 사용해서 rest api 실행하려면... 굳이 하려면...
 
+# curl 과 https 인증서
+
+# 만약, 맥북 키체인, nginx 인증서 등등
+# 인증서 등록이 정상이면 => 401 에러가 발생함 (인증서는 정상이고, id/pw 없는것이므로)
+# 인증서 등록에 문제 있는 경우 => curl 인증서 사용 에러가 발생함
+# curl: (60) SSL certificate problem: unable to get local issuer certificate
+curl https://192.168.0.34/v2/_catalog
+
 # curl -k 옵션으로 클라이언트(curl)에서 인증서를 사용하지 않고, 무시한다
 # id,pw 없으므로 401 뜬다
 curl -k https://192.168.0.34/v2/_catalog
@@ -379,7 +405,68 @@ curl -k https://192.168.0.34/v2/_catalog
 # id,pw 를 직접 url 에 입력
 curl -k https://danielk0121:123123@192.168.0.34/v2/_catalog
 
+# id, pw 를 curl 옵션 사용
+curl -u danielk0121 https://192.168.0.34/v2/_catalog
+password: xxx
 
+# 또는 id, pw 를 모두 노출
+curl -u danielk0121:123123 https://192.168.0.34/v2/_catalog
+
+---
+# 추가, registry-ui
+
+# 공식 : https://github.com/Joxit/docker-registry-ui
+
+# 주의 !
+# 젬미니가 ui 서버가 프록시 설정하는 방향이 아니라,
+# 레지스트리 서버가 CORS 허용을 해주는 방향으로 설정을 알려주는 경우가 있는데
+# UI 서버에서는, NGINX_PROXY_PASS_URL, REGISTRY_URL 2개 옵션을 같이 쓰면 안되고
+# 레지스트리 서버에서는, CORS 옵션 설정이 제대로 먹히는지 curl 명령으로 확인해야 한다
+# 삽질을 4시간... 그냥 공식 문서 볼껄, 잼미니랑 놀다가 하...
+
+# 같이 사용할 도커 네트워크 생성
+docker network rm registry-net || true
+docker network create registry-net
+
+# 레지스트리 서버 생성
+docker stop registry-server; docker rm -f registry-server
+docker run -d \
+  --name registry-server \
+  --network registry-net \
+  -p 55000:5000 \
+  -e REGISTRY_STORAGE_DELETE_ENABLED=true \
+  --restart always \
+  registry:2.8.2
+
+# 레지스트리 ui 생성
+# NGINX_PROXY_PASS_URL 옵션으로 프록시 설정이 가능하다
+docker stop registry-ui; docker rm -f registry-ui
+docker run -d \
+  --name registry-ui \
+  --network registry-net \
+  -p 8080:80 \
+  -e SINGLE_REGISTRY=true \
+  -e REGISTRY_TITLE="Docker Registry UI" \
+  -e DELETE_IMAGES=true \
+  -e SHOW_CONTENT_DIGEST=true \
+  -e NGINX_PROXY_PASS_URL=http://registry-server:5000 \
+  -e SHOW_CATALOG_NB_TAGS=true \
+  -e CATALOG_MIN_BRANCHES=1 \
+  -e CATALOG_MAX_BRANCHES=1 \
+  -e TAGLIST_PAGE_SIZE=100 \
+  -e REGISTRY_SECURED=false \
+  -e CATALOG_ELEMENTS_LIMIT=1000 \
+  --restart always \
+  joxit/docker-registry-ui:main
+
+# 기존 cli 명령으로 push 이미지 확인
+curl 192.168.0.34:55000/v2/_catalog
+docker push 192.168.0.34:55000/my-image-name:0.0
+curl 192.168.0.34:55000/v2/_catalog
+
+# 브라우저에서 레지스트리 ui 확인
+http://<docker host ip>:8080/
+http://192.168.0.34:8080/
 
 
 
