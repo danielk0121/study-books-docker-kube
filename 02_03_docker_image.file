@@ -295,6 +295,9 @@ curl 192.168.0.100:5000/v2/_catalog
 # 이미지 목록, 태그로 조회
 curl 192.168.0.100:5000/v2/my-image-name/tags/list
 
+---
+# todo
+# 실습, 트러블 슈팅
 
 
 
