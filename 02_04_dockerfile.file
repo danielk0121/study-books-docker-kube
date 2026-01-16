@@ -5,6 +5,8 @@
 # 2.4.1 이미지를 생성하는 방법
 
 ---
+# Dockerfile 특징
+
 # 개발한 어플리케이션을 컨테이너화 하는 방법
 1.. 빈 이미지로(ubuntu, centos 등) 컨테이너 생성
 2.. 환경 설치, 어플리케이션 설치, 실행 확인
@@ -12,18 +14,20 @@
 
 # build 명령어
 # Dockerfile : 작업 기록 명세
-# build 명령어 : 도커 파일로 이미지 빌드
+# build : 도커 파일로 이미지 빌드
 
 # 여러 용도
-# 도커 허브 배포 할 때, 이미지 자체 배포 대신, Dockerfile 배포
+# 도커 허브에 이미지 대신, Dockerfile 배포
 
 ---
 # 2.4.2 Dockerfile 작성
 
 ---
-# 간단히 웹서버 이미지 생성
+# 간단히 웹서버 이미지 생성 예시
+
 # Dockerfile 명령어는 소문자도 되지만, 일반적으로 대문자
-mkdir dockerfile && cd dockerfile
+mkdir dockerfiles && cd dockerfiles
+mkdir ex01 && cd ex01
 echo test >> test.html
 vi Dockerfile
 
@@ -60,16 +64,21 @@ docker build -t mybuild:0.0 ./
 # -P 옵션 : 모든 포트 개방
 docker run -d -P --name myserver mybuild:0.0
 
+# 아파치 웹서버 실행을 브라우저로 확인
+# 포트번호는 랜덤
+
 # 라벨로 이미지 필터링 가능
 docker images --filter "label=purpose=practice"
 
 ---
 # 빌드 컨텍스트
+
 # 디렉터리를 의미, Dockerfile 이 위치한 디렉터리 의미
 # .gitignore 파일처럼 .dockerignore 파일 사용 가능
 
 ---
 # Dockerfile 이용한 컨테이너 생성, 커밋
+
 # docker build 로그를 보면
 # 이미지를 만드는 과정이 하나의 컨테이너에서 일어나는 것이 아님을 알 수 있다
 # Removing intermediate container xxxxxx1
@@ -79,7 +88,40 @@ docker images --filter "label=purpose=practice"
 # 이를 이미지로 커밋한다
 # Dockerfile 명령어 한줄 마다 = 새로운 이미지 레이어
 
+---
+# 확인을 위해, 빌드 로그 출력 방법 변경 후 다시 빌드
+
+# 일단 지우고 다시 빌드
+docker rmi -f mybuild:0.0
+docker build --progress=plain --no-cache -t mybuild:0.0 ./
+
+# Removing intermediate container 로그 메세지가 없음
+# 구글링 시작
+
+# 빌드킷
+
+# 과거 방식 (Legacy Build): 단계별로 임시 컨테이너를 생성하고,
+#  레이어 저장이 끝나면 이를 삭제하는 방식입니다.
+#  이때 Removing intermediate container 메시지가 출력됩니다.
+
+# 현재 방식 (BuildKit): 도커 20.10 버전 이후 기본값이 된 BuildKit은
+#  컨테이너를 생성/삭제하는 방식이 아니라 병렬 처리가 가능한 저수준 구성 요소(DAG)를 사용합니다.
+#  따라서 삭제할 "임시 컨테이너"라는 개념 자체가 없으므로 해당 로그도 나오지 않습니다.
+
+# 레거시 빌더 사용방법
+# DOCKER_BUILDKIT=0 docker build -t 이미지명 .
+
+# 사용
+DOCKER_BUILDKIT=0
+docker rmi -f mybuild:0.0
+docker build --progress=plain --no-cache -t mybuild:0.0 ./
+
+# 임시 컨테이너 사용하는 로그 안나오네 ?
+# 일단 스킵
+
+---
 # 노캐시 빌드
+
 # 이미지 레이어 캐시를 사용하지 않는다
 docker build --no-cache -t mybuild:0.0 .
 
@@ -109,8 +151,8 @@ RUN go build -o /root/mainApp /root/main.go
 CMD ["./mainApp"]
 
 # 도커파일 빌드 후 이미지 크기 확인
-# 약 800MB
-docker build . -t go_helloworld
+# 약 900MB
+docker build -t go_helloworld .
 docker images
 
 # 이미지 크기를 줄이기 위해, 멀티 스테이지 빌드 방법 사용
@@ -119,6 +161,8 @@ docker images
 # Dockerfile 다시 작성
 # --from=0 옵션 : 첫번째 FROM 에서 빌드된 이미지의 최종 상태를 의미
 # 즉, 첫번째 from 빌드 결과 /root/mainApp 폴더를 복사에 사용하라는 의미
+vi Dockerfile2
+
 FROM golang
 ADD main.go /root
 WORKDIR /root
@@ -130,8 +174,8 @@ COPY --from=0 /root/mainApp .
 CMD ["./mainApp"]
 
 # 빌드 후 이미지 크기 확인
-# 약 6MB
-docker build . -t go_helloworld:multi-stage
+# 약 11MB
+docker build -t go_helloworld:multi-stage -f Dockerfile2 .
 docker images
 
 ---
@@ -147,6 +191,7 @@ docker images
 
 # COPY : 로컬의 파일만 이미지에 추가 가능
 # ADD : url, tar 파일에서도 파일을 추출해서 추가 가능
+
 # add tar 을 사용하면, tar 압축을 풀어서 폴더 통째로 복사한다
 COPY test.html /home
 COPY ["test.html", "/home"]
@@ -161,9 +206,13 @@ ADD test.tar /home
 # entrypoint 이용한 스크립트 실행
 # 스크립트 파일 이름을 사용
 # 단, 실행할 스크립트 파일이 컨테이너 내부에 존재해야 함 !
+# 아래 명령어는 실행하면, 에러 ! test.sh 파일이 없으므로
 docker run -it --name entrypoint_sh --entrypoint="/test.sh" ubuntu:14.04 /bin/bash
 
-# Dockerfile 예시
+---
+# entrypoint 예시, dockerfiles/ex03 폴더
+
+# Dockerfile 파일
 FROM ubuntu:14.04
 RUN apt-get update
 RUN apt-get install apache2 -y
@@ -176,7 +225,17 @@ echo $1 $2
 apachectl -DFOREGROUND
 
 # 도커파일 빌드
+docker rm -f entrypoint_sh
+docker rmi entrypoint_image:0.0
 docker build -t entrypoint_image:0.0 .
+
+# 이미지 실행
+# 뭔가 예제가 이상하네
+# /bin/bash 인자 제거
+# 도커파일에 포트 개방 추가
+# 아파치 웹서버를 위한 포트 개방 -P 옵션 추가
+docker rm -f entrypoint_sh
+docker run -it --name entrypoint_sh -P --entrypoint="/entrypoint.sh" entrypoint_image:0.0
 
 ---
 # JSON 배열 형태와 일반 형식의 차이점
@@ -190,30 +249,34 @@ docker build -t entrypoint_image:0.0 .
 
 ---
 # 이미지 레이어 비효율 예시
+
 # fallocate 명령어로 100MB 파일을 가상으로 만들고
 # 다시 파일을 삭제하고, 이미지 빌드
 # 최종 이미지에는 파일이 없지만, 이미지 크기는 100MB 추가됨
 
-# 잘못된 도커 파일 예시
+# 잘못된 도커 파일 예시, dockerfiles/ex04
 FROM ubuntu:14.04
 RUN mkdir /test
 RUN fallocate -l 100m /test/dummy
 RUN rm /test/dummy
 
 # 빌드 및 이미지 크기 확인
+
 # ubuntu => 187 MB
 # falloc_100mb => 292 MB
-# falloc_100mb 이미지로 컨테이너 생성하면 /test/dummy 파일이 없음
 docker build -t falloc_100mb:0.0 .
-docker images
-docker run --name=falloc_test falloc_100mb:0.0
-ls /test/dummy
+docker images | grep -E "ubuntu|falloc"
+
+# falloc_100mb 이미지로 컨테이너 생성하면 /test/dummy 파일이 없음
+docker rm -f falloc_test
+docker run --name=falloc_test falloc_100mb:0.0 ls -al /test
 
 # 왜 그런가
 # RUN rm /test/dummy 명령어 수행
 # => "파일을 삭제했다" 라는 변경사항으로서의 레이어로 새롭게 저장된다 !
 
 # 방지하는 방법
+
 # && 로 각 RUN 명령어를 하나로 묶는 방법 사용
 # 수정된 도커 파일 예시
 FROM ubuntu:14.04
@@ -224,6 +287,16 @@ RUN mkdir /test && \
 # RUN 명령어 한개가 하나의 이미지 레이어가 된다는 것을 생각하면, 간단한 것 !
 
 ---
+# 실습, ex04/Dockerfile2
+
+# ubuntu 이미지 : 187MB
+# falloc 이미지 : 187MB
+# falloc_100mb 이미지 : 292MB
+docker build -t falloc:0.0 -f Dockerfile2 .
+docker images | grep -E "ubuntu|falloc"
+docker run --name=falloc_test2 falloc:0.0 ls -al /test
+
+---
 # 이미지 레이어 줄이는 방법
 
 # 다른 사람이 빌드한 이미지에 불필요한 이미지 레이어가 있다면
@@ -231,27 +304,12 @@ RUN mkdir /test && \
 # 컨테이너를 이미지로 만들어서, 레이어를 줄여버림
 
 # export, import 로 레이어 줄임
+
 # 다만, 베이스 이미지인 우분투 이미지의 명령어 cmd 가 손실됨
 # 따라서, 마지막 docker run 은 에러 발생함
 docker run -it -d --name temp falloc_100mb:0.0
 docker export temp | docker import - falloc_100mb:0.1
 docker run -it -d --name temp2 falloc_100mb:0.1
-
----
-# todo
-# 실습, 트러블 슈팅 기록
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
