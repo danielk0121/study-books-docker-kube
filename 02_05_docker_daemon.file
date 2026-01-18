@@ -16,6 +16,7 @@ which docker
 /usr/bin/docker
 
 # 실행중인 도커 프로세스 확인
+dockerd 프로세스
 ps aux | grep docker
 ..... /usr/bin/dockerd -H fd://
 
@@ -36,13 +37,14 @@ ps aux | grep docker
 # 우분투
 service docker start
 service docker stop
+
 # 레드햇 계열
 systemctl enable docker
 
 ---
 # 도커 엔진 직접 실행 (서비스 없이)
 # 로그 내용 확인
-# API listen on /var/run/docker.sock
+# ...... API listen on /var/run/docker.sock
 service docker stop
 dockerd
 
