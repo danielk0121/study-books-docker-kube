@@ -6,6 +6,8 @@
 - [02_03_docker_image.file](02_03_docker_image.file)
 - [02_04_dockerfile.file](02_04_dockerfile.file)
 - [02_05_docker_daemon.file](02_05_docker_daemon.file)
+- [03_01_docker_swarm.file](03_01_docker_swarm.file)
+- [04_01_docker_compose.file](04_01_docker_compose.file)
 
 
 ## 추가 작업 파일
@@ -13,6 +15,7 @@
 - [m2_cpu_utm_ubuntu_docker.file](m2_cpu_utm_ubuntu_docker.file)
 - [change_docker_cmd_alias.file](change_docker_cmd_alias.file)
 - [docker_image_alpine.file](docker_image_alpine.file)
+
 
 ---
 ## 목적
@@ -23,6 +26,7 @@
 - 노트북 로컬 환경으로 쿠버 테스트 구축
 
 
+---
 ## 참고
 - 조금 오래된 책
   - 2020년 초판 발행, 작업은 2025년 12월 시작
@@ -46,6 +50,7 @@
   - 아마 도커 사설 레포 사용 부터는 aws 필요할 듯
 
 
+---
 ## 주요 이슈
 - 책 예제에서 사용하는 mysql 5.7 이미지가 amd64 이미지
   - => 경고만 뜨고, arm64 에서 실행되서, 일단 그냥 사용
