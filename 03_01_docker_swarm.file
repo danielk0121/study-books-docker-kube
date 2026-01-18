@@ -2,4 +2,680 @@
 # 3.1 도커 스웜을 사용하는 이유
 
 ---
-ㅁㄴㅇㄹ
+# 3.1 도커 스웜을 사용하는 이유
+
+# 여러대 서버를 하나의 자원 풀로 만드는 방법, 도커
+# - 도커 스웜
+# - 스웜 모드
+
+---
+# 3.2 스웜 클래식과 도커 스웜 모드
+
+---
+# 도커 스웜에는 2가지 종류
+# - 스웜 : 도커 1.6 버전 부터 사용 가능한 컨테이너로서의 스웜
+# - 스웜 모드 : 도커 1.12 버전 부터 사용 가능
+
+# 앞으로 구분을 위해
+# 스웜 클래식
+# 스웜 모드
+
+---
+# 스웜 클래식
+# 여러대 도커 서버를 하나의 지점에서 사용
+
+# 스웜 모드
+# 마이크로 서비스 아키텍처의 컨테이너를 위한 클러스터링 기능에 초점
+# 같은 컨테이너를 동시에 여러개 생성, 컨테이너 수를 조절할 수 있음
+# 컨테이너로의 연결을 분산하는 로드밸런싱 기능 지원
+
+# 분산 코디네이터
+# 새로운 서버 발견
+# 클러스터의 각종 설정 저장
+# 데이터 동기화
+# etcd, zookeeper, consul 등
+
+# 스웜 모드를 설명
+# 3대 이상의 도커 서버 필요
+
+# 스웜 클래식 레거시
+# 공식 문서도 레거시로 언급
+# 책에서 다루지 않음
+
+---
+# 3.3 스웜 모드
+
+---
+# 스웜 모드는 도커 엔진 자체 내장
+# docker info 스웜 모드 클러스터 정보 확인 가능
+docker info | grep Swarm
+... Swarm: inactive
+
+---
+# 3.3.1 도커 스웜 모드의 구조
+
+---
+# 스웜 모드는 매니저 노드, 워커 노드로 구성
+# 매니저 노드가 워커 노드 역할도 포함
+# 그러나, 일반적으로 구분해서 사용하는 것을 권장
+
+---
+# 3.3.2 도커 스웜 모드 클러스터 구축
+
+---
+# 예제
+# 서버 IP, 호스트 이름
+swarm-manager 192.168.0.100
+swarm-worker1 192.168.0.101
+swarm-worker2 192.168.0.102
+
+# 매니저 역할 서버 시작
+# --advertise-addr 매니저 노드 IP 주소 입력
+docker swarm init --advertiese-addr 192.168.0.100
+... init
+...
+... docker swarm join --token xxxxxx 192.168.0.100:2377
+
+# 스웜 매니저 포트 사용
+# 기본값으로 2377 포트 사용
+# 노드 사이 통신에 7946/tcp, 7946/udp
+# ingress 네트워크에 4789/tcp, 4789/udp
+
+# 워커 노드 각 서버에 입력
+docker swarm join --token xxxxxx 192.168.0.100:2377
+... this node ... as worker
+
+# 워커 추가 확인, 매니저 노드에서 입력
+docker node ls
+
+# 매니저 리더 노드
+# 일반 매니저 노드와, 리더 매니저 노드로 나뉨
+# 리더가 죽으면 선출함
+
+---
+# 새로운 매니저 노드 추가
+docker swarm join-token manager
+
+---
+# 토큰 갱신, 매니저 서버 에서 실행
+docker swarm join-toekn --roate manger
+
+---
+# 워커 노드 삭제, 워커 노드에서 입력
+docker swarm leave
+
+# 매니저 노드는 Down 으로 인지할 뿐, 삭제 안함
+# 매니저 노드에서 워커 노드 삭제 해야 함
+# 매니저 노드에서 입력
+docker node ls
+docker node rm swarm-node01
+docker node ls
+
+---
+# 매니저 노드 삭제
+# --force 옵션 사용
+# 매니저 노드에서 입력
+docker swarm leave --force
+
+---
+# 워커 노드를 매니저 노드로 승격
+docker node promote swarm-worker1
+
+# 반대로
+docker node demote
+
+---
+# 3.3.3 스웜 모드 서비스
+
+---
+# 스웜 모드에서 제어하는 단위는 컨테이너가 아닌 서비스 입니다
+
+# 서비스는 같은 이미지에서 생성된 컨테이너 집합이다
+# 각 컨테이너들은 task 라고 한다
+# 이 책에서는, 테스크를 컨테이너라고 부르겠다
+
+---
+# 롤링 업데이트
+
+# 변경을 위해 하나씩 재시작 하는 것을 의미
+# 여러 개의 서버, 컨테이너, 클러스터 설정 등
+
+---
+# 서비스 생성
+
+# 서비스 제어 명령어는, 모두 매니저 노드에서 사용 가능
+
+---
+# 서비스 생성 예제
+
+# ubuntu:14.04 이미지로 서비스 내 컨테이너를 생성
+# hello world 출력
+# 매니저 서버에서
+docker service create \
+ubuntu:14.04 \
+/bin/sh -c "while ture; do echo hello world; sleep 1; done"
+
+---
+# 서비스의 컨테이너 특성
+
+# 서비스 내 컨테이너는 detached 모드 실행
+# docker run -d 동작할 수 있는 이미지 사용
+# 아니면, 스웜 매니저는 서비스 컨테이너에 장애가 생긴 것으로 판단하여, 컨테이너를 계속 반복 생성할 것
+
+---
+# 서비스 목록 확인
+docker service ls
+
+# 서비스 상세 정보 확인
+docker service ps <서비스 이름>
+
+# 서비스 삭제
+docker service rm <서비스 이름>
+
+---
+# nginx 웹 서버 서비스 생성하기 예제
+
+# replica 옵션 추가
+# 2개 리플리카
+# 서비스 이름을 myweb 으로 설정
+# 80번 포트 개방
+# 매니저 노드 서버에서 실행
+docker service create --name myweb \
+--replicas 2 \
+--p 80:80 \
+nginx
+
+# 확인
+docker service ps myweb
+... 2개 확인
+
+# 브라우저 접속 테스트
+# 어떤 노드로 접근해도 웹 서버에 접속 가능
+# swarm-worker2 노드 ip 주소로 접근 시도
+# swarm-worker2 에 nginx 컨테이너가 없음
+
+---
+# 서비스 내 컨테이너 개수 증가
+# 매니저 노드에서 실행
+docker service scale myweb=4
+
+---
+# global 서비스 생성하기
+
+---
+# 서비스 모드는 두가지
+# - 리플리카 셋 수를 정해, 같은 컨테이너를 생성하는 복제 모드
+# - 다른 하나는 global 글로벌 모드
+
+---
+# global 모드
+
+# 클러스터 내 모든 노드에 컨테이너를 반드시 하나씩 생성한다
+# 스웜 클러스터를 모니터링 하기 위한 에이전트 컨테이너 생성에 유용
+# docker service create 에 --mode global 추가
+
+# 매니저 노드에서 실행
+docker service create --name global_web --mode global nginx
+
+# 각 노드에 컨테이너 하나씩 생성 확인
+docker service ls
+... mode global 로 생성됨
+
+docker service ps global_web
+... 각 노드에 하나씩 생성됨
+
+---
+# 스웜 모드의 서비스 장애 복구
+
+---
+# 컨테이너 하나를 삭제해 보자
+docker ps
+... 컨테이너 name 확인
+... myweb.1.xxx
+
+# 삭제
+docker rm -f myweb.1.xxx
+
+---
+# 스웜 서비스로 생성된 컨테이너 확인
+docker ps --filter is-task-true
+
+---
+# 삭제 이후 확인하면, 다시 생성됨
+docker service ps myweb
+... desired state 컬럼 보면
+... running 1개, shutdown 1개
+
+---
+# 특정 노드 다운
+# swarm-worker1 노드와 도커 데몬 프로세스를 종료해서 노드 장애 발생
+# swarm-worker1 노드 에서 실행
+service docker stop
+
+# 매니저 노드에서 확인
+docker node ls
+... status 보면
+... swarm-worker1 Down
+... 다른 노드는 Ready
+
+# 컨테이너 복구 현황 확인
+# docker ps 보면, worker1 shutdown, manager 에서 생성됨을 확인
+# 매니저에서 실행
+docker sevice ps myweb
+... name, node 항목 보면
+... myweb.2 manager Running
+... \_ myweb.2 worker1 shutdown
+
+---
+# 재균형, rebalance
+# 노드를 복구해도 컨테이너들이 rebalance 되지 않는다
+# scale 명령어를 사용해, 컨테이너 수를 줄이고, 다시 늘려야 한다
+# 매니저에서 실행
+docker service scale myweb=1
+docker service scale myweb=4
+
+---
+# 서비스 롤링 업데이트
+
+---
+# 롤링 업데이트를 위한 테스트 서비스 생성
+# 매니저에서 실행
+docker service create --name myweb2 --replicas 3 nginx:1.10
+
+# 이미지 업데이트
+# 매니저에서 실행
+docker service update --image nginx:1.11 myweb2
+
+# 확인
+# 매니저에서 실행
+docker service ps myweb2
+... name myweb2.1 / image nginx:1.11 / desired state Running
+... name \_ myweb2.1 / image nginx:1.10 / desired state Shutdown
+
+---
+# 롤링 업데이트 주기
+
+# 서비스 생성 시, 롤링 설정 가능
+# 매니저에서 실행
+# 기본값 : delay 없이, 컨테이너 한 개씩 업데이트
+docker service create \
+--replica 4 \
+--name myweb3 \
+--update-delay 10s \
+--update-parallelism 2 \
+nginx:1.10
+
+# 서비스 롤링 업데이트 설정 확인
+docker service inspect --pretty myweb
+...UpdateConfig:
+...  Parallelism: 2
+...  Delay: 10s
+...  On failure: pause
+
+---
+# 서비스 컨테이너에 설정 정보 전달하기 : config, secret
+
+---
+# 지금까지, -v 옵션으로, 호스트에 위치한
+# 생성파일이나 값을 볼륨으로 컨테이너에 공유했다\
+# 예
+docker run -d --name yml_registry -p 5002:5000 --restart=always \
+-v $(pwd)/config.yml:/etc/docker/registry/config.yml \
+registry:2.6
+
+---
+# 또는, -e 옵션, 환경 변수 사용
+docker run -d --name wordpressdb_hostvolume \
+-e MYSQL_ROOT_PASSWORD=password \
+-e MYSQL_DATABASE=wordpress \
+-v /home/wordpress_db:/var/lib/mysql \
+mysql:5.7
+
+---
+# 그러나, 보안 취약
+# 스웜 모드는 secret, config 기능 제공
+# secret 비밀번호
+# config 설정 파일
+
+# 도커 스웜에서만 사용 가능, docker run 에서 사용 불가
+
+---
+# secret 사용하기
+
+---
+# secret 생성
+# 매니저 노드에서 실행
+echo 123qwer | docker secret create my_mysql_password -
+docker secret ls
+docker secret inspec my_mysql_password
+
+# secret 특징
+# 암호화 저장
+# 메모리 저장
+# 따라서, 내용 확인 불가
+
+---
+# secret 예제
+
+# mysql 컨테이너 생성
+# 매니저에서 실행
+docker service create --name mysql --replicas 1 \
+--secret source=my_mysql_password,target=mysql_root_password \
+--secret source=my_mysql_password,target=mysql_password \
+-e MYSQL_ROOT_PASSWORD_FILE="/run/secrets/mysql_root_password" \
+-e MYSQL_PASSWORD_FILE="/run/secrets/mysql_password" \
+-e MYSQL_DATABASE="wordpress" \
+mysql:5.7
+
+# secret 파일 확인
+docker ps
+... 컨테이너 name mysql.1.xxx 확인
+
+docker exec mysql.1.xxx ls /run/secrets
+
+---
+# config 사용하기
+
+# 매니저 노드에서 실행
+docker create registry-config config.yml
+
+# 확인
+docker config ls
+... name registry-config
+
+# 상세
+# 파일 내용이 인코딩되어서 Data 에 저장됨
+docker config inspect registry-config
+... Data: xxx
+
+# config 는 내용을 base64 인코딩으로 저장한다
+
+# 인코딩 데이터 확인
+echo xxxxxx | base64 -d
+... config.yal 파일 내용
+
+---
+# config 사용 예제
+
+# config 로 사설 레지스트리 생성
+# 매니저에서 실행
+docker service create --name yml_registry -p 55000:5000 \
+--config soruce=registry-config,target=/etc/docker/registry/config.yml \
+registry:2.6
+
+---
+# 도커 스웜 네트워크
+
+---
+# 우선, 네트워크 목록 확인
+# 매니저 노드에서 실행
+# docker_gwbridge, ingress 추가됨
+docker network ls
+... name             driver   scope
+...
+... docker_gwbridge  bridge   local
+... ingress          overlay  swarm
+
+---
+# ingress 네트워크
+
+---
+# 스웜 클러스트를 생성하면, 자동으로 등록됨
+# 매니저 노드뿐 아니라, 클러스터에 등록된 노드라면 전부 ingress 네트워크가 생성됨
+# 서비스 내, 컨테이너에 대한 접근을 라운드 로빈 방식으로 분산하는 로드 밸런싱을 담당함
+
+---
+# ingress 기능 확인 에제
+
+# alicek106/book:hostname 이미지 사용
+# 컨테이너의 호스트 이름 출력하는 php 파일이 있는 웹서버
+# 매니저 노드에서 실행
+docker service create --name hostname -p 80:80 --replicas=4 \
+alicek106/book:hostname
+
+# 컨테이너 확인
+docker ps (manager 노드) ... container id xxxa
+docker ps (worker1 노드) ... container id xxxb, xxxc
+docker ps (worker2 노드) ... container id xxxd
+
+# 브라우저로 확인
+# 앞에서 설명한것처럼, 어떤 노드의 IP 주소로 접근해도, 컨테이너에 접근 가능
+# 새로고침 하면, 4개 컨테이너 호스트 이름 확인 가능
+
+# 브라우저 확인 주의사항
+# 새로 고침으로 확인 안되면, 새로운 탭이나, 새로운 창 확인
+
+---
+# 외부로 노출되기 위해, 무조건 ingress 네트워크 사용해야 하는 것은 아님
+# docker run -p 처럼 특정 포트 사용 가능
+
+# 에시
+docker service create --name=web \
+--publish mode=host,target=80,publised=8080,protocol=tcp \
+nginx
+
+# 어느 호스트에서 컨테이너가 생성될지 알 수 없어서
+# 포트, 서비스 관리가 어렵다
+# 비추천
+
+---
+# 오버레이 네트워크
+
+---
+# 컨테이너가 할당받는 IP 주소는 ?
+# 하나를 골라 컨테이너 내부에서 ifconfig 확인
+
+# 매니저 서버
+docker ps => 컨테이너 id 확인 xxxa
+docker exec xxxa ifconfig
+...
+eth0 ... 10.255.0.9
+eth1 ... 172.18.0.2
+lo   ... 127.0.0.1
+...
+
+# 워커 서버
+docker ps => 컨테어니 id 확인 xxxb
+docker exec xxxb ifconfig
+...
+eth0 ... 10.255.0.8 => 순차적 ip 할당
+eth1 ... 172.18.0.2
+lo   ... 127.0.0.1
+...
+
+# eth0 NIC 가 ingress 네트워크와 연결된 랜카드
+
+---
+# 오버레이 네트워크 드라이버
+
+# ingress 네트워크는 오버레이 네트워크 드라이버를 사용
+# 오버레이 네트워크는 여러개의 도커 데몬을 하나의 네트워크 풀로 만드는 네트워크 가상화 기술
+
+---
+# docker_gwbridge 네트워크
+
+---
+# docker_gwbridge 는 네트워크 외부로 나가는 통신 및 오버레이 네트워크의 트래픽 종단점 (VTEP) 역할을 담당
+# eth1 과 연결됨
+# ??? 그래서 뭔데 ??? 책에 설명 없음...
+
+----
+# 사용자 정의 오버레이 네트워크
+
+---
+# 매니저에서 실행
+# subnet 에서 10.0
+docker network create \
+--subnet 10.0.9.0/24 \
+-d overlay \
+myoverlay
+
+# 오버레이 네트워크를 생성하는 명령어는 모든 노드에서 각각 실행할 필요가 없다
+# 클러스터 내에 속한 노드 하나에서만 실행해도, 다른 노드에서 자동으로 적용된다
+# 그러나, 생성 즉시 적용되는게 아니다
+# 각 노드에 해당 오버레이 네트워크를 사용하는 서비스의 컨테이너가 할당 될 때 적용된다
+
+# 오버레이 네트워크 확인
+# 매니저에서 실행
+docker network ls
+... name       driver   scope
+... ingress    overlay  swarm
+... myoverlay  overlay  swarm
+
+# scope swarm 의미
+# 스웜 클러스터에서만 사용 가능
+# 즉, 일반적인 docker run --net 명령어로 사용 불가
+# 하지만, 네트워크 생성시 --attachable 추가하면 사용 가능
+
+# 예시
+docker network create -d overlay --attachable myoverlay2
+docker run -it --net myoverlay2 ubuntu:14.04
+ifconfig
+... etho0 10.0.1.2
+
+# 도커 서비스에 사용자 정의 오버레이 네트워크 적용
+# --network myoverlay 옵션
+docker service create --name overlay_service --replica 2 \
+--network myoverlay \
+alicek106/book:hostname
+
+# 생성된, 컨테이너 내부 ifconfig
+# myoverlay subnet 10.0.9.0/24 범위에 IP 할당을 확인 할 수 있음
+docker exec xxx ifconfig
+... eth0 10.0.9.4
+... eth1 172.18.0.3
+
+---
+# 서비스 디스커버리
+
+---
+# 같은 컨테이너를 여러개 만들어 사용할때 장점은
+# 새로 생성된 컨테이너 생성의 발견(service discovery)
+# 혹은 없어진 컨테이너 감지
+
+# 스웜 모드에서는 서비스 이름만 알면 된다
+
+# 에제
+
+# 서비스들이 사용할 오버레이 네트워크 생성
+# 매니저 노드에서
+docker network create -d overlay discovery
+
+# 2개 서비스 생성
+# 매니저 노드에서
+docker service create --name server --replica 2 --network discovery alicek106/book:hostname
+docker service create --name client --network discovery alicek106/book:curl ping docker.com
+
+# client 서비스 컨테이너 내부에 들어가려면, 노드 위치 파악 필요
+docker service ps client
+... node swarm-worker1
+
+# 찾은 노드에서 실행
+# 컨테이너 id 를 확인해서, 컨테이너 내부로 들어감
+docker ps | grep ping
+... id xxxa
+docker exec -it xxxa bash
+
+# 컨테이너 내부에서 curl 로 서버에 접근
+# sever 는 서비스 이름
+# 도커 스웜 DNS 가 자동으로 resolve 한다
+# 2개 컨테이너를 번갈아 가면서 조회하는 것을 확인 가능
+curl -s server | grep Hello ...xxxa
+curl -s server | grep Hello ...xxxb
+curl -s server | grep Hello ...xxxa
+curl -s server | grep Hello ...xxxb
+
+# 매니저 노드에서 리플리카 3개로 늘림
+docker service scale server=3
+
+# 다시, 클라이언트 서비스, 컨테이너 내부로 들어가 curl 명령어 날림
+# 3개 컨테이너 번갈아 가면서 조회 확인 가능
+
+---
+# 어떻게 각 컨테이너 IP 로 변환된 것일까 ?
+
+# server 라는 호스트 이름이, 서비스의 VIP(virtual IP) 를 가지는 것이다
+# server VIP 확인
+# 매니저 서버에서 실행
+docker service inspect --format {{.Endpoint VirtualIps}} server
+... 10.0.1.2/24
+
+---
+# 스웜 모드 볼륨
+
+---
+# 스웜 모드에서, 서비스 생성 할 때,
+# 도커 볼륨을 사용할지, 호스트와 폴더를 공유할지 명시해야 한다 !
+
+---
+# volume 타입의 볼륨 생성
+
+# 매니저에서 실행
+# source=myvol 이 이미 있으면 사용하고, 없으면 생성한다
+docker service create --name ubuntu \
+--mount type=volume,source=myvol,target=/root \
+ubuntu:14.04 \
+ping docker.com
+
+# source 명시하지 않으면, 익명 이름으로 생성한다
+docker service create --name ubuntu \
+--mount type=volume,target=/root \
+ubuntu:14.04 \
+ping docker.com
+
+# 볼륨 생성 확인
+docker volume ls
+
+---
+# bind 타입 볼륨 생성
+
+# 바인드 타입은 호스트와 폴더 공유할 때 사용
+
+# 매니저에서 실행
+docker service create --name ubuntu \
+--mount type=bind,source/root/host,target=/root/container \
+ubuntu:14.04 \
+ping docker.com
+
+---
+# 스웜 모드에서 볼륨의 한계점
+
+# 모든 노드가 볼륨 데이터를 가지고 있어야 한다 ... (허접한데 ?)
+# 이를 해결하기 위해 ?!
+# 어느 노드에서도 접근 가능한 퍼시스턴트 스토리지 사용함
+
+# Persistent Storage 퍼시스턴트 스토리지
+
+# 그러나, 도커 자체적으로 제공하지 않는다 (???)
+# 플러그인, nfs, dfs 등 별도로 구성해야 함
+# 책에서는 다루지 않음 (???)
+
+---
+# 도커 스웜에서 사용할 퍼시스턴트 스토리지 조사
+
+# - 리눅스 NFS 구축 : 쉽다, 중앙 NFS 서버 죽으면 데이터 유실
+# - 클라우드 관리형 서비스 사용 : 서버가 죽어도 데이터 살린다. aws efs, azure files
+# - 클라우드 비용 부담에, 고성능 분산 스토리지 필요 : k8s 로 넘어가서 Longhorn 쓰거나, 도커 스웜에서 Portworx 도입 검토
+# - Portworx : 기업용으로 많이 쓰는 유료 솔루션, 모든 노드에서 공유 스토리지 사용 가능
+# - Longhorn : 쿠버네티스용으로 개발된 오픈소스 분산 블록 스토리지 솔루션
+
+---
+# todo 실습
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
