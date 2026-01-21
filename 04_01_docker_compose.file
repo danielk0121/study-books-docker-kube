@@ -3,7 +3,391 @@
 ---
 # 4.1 도커 컴포즈를 사용하는 이유
 
-ㅁㄴㅇㄹ
+# 웹, 디비 서비스 테스트 하려면, 컨테이너를 다음처럼 하나씩 2개 생성해야 한다
+# 예시
+docker run --name mysql -d alicek106/composetest:mysql mysqld
+
+docker run -d -p 80:80 --link mysql:db --name web \
+alicek106/composetest:web apachectl -DFORCEGROUND
+
+# 도커 컴포즈는 여러개 컨테이너
+# 파일을 읽어 컨테이너를 순차적으로 생성하는 방식으로 동작
+
+# 도커 컴포즈 생성 파일은
+# run 명령어의 옵션을 그대로 사용 가능
+
+# 스우머 모드의 서비스와 유사하게 컨테이너 수를 조절 가능
+
+---
+# 4.2 도커 컴포즈 설치
+
+---
+# 예제
+# 도커 컴포즈 1.11 버전 기준
+curl -L https://github.com/docker/compose/release/download/1.11/ \
+docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+
+chmod +x /usr/local/bin/docker-compose
+
+# Docker for windows, Docker for Mac 설치하면 도커 컴포즈 함께 설치 된다
+
+# 설치 확인
+docker-compose -v
+
+---
+# 4.3 도커 컴포즈 활용
+
+---
+# 4.3.1 기본 사용법
+
+---
+# yaml 파일을 읽는다
+
+# 예제
+# run 명령어를 docker-compose.yaml 파일로 변환
+
+docker run -d --name mysql alicek106/composetest:mysql mysqld
+docker run -d -p 80:80 --link mysql:db --name web \
+alicek106/composetest:web apachectl -DFORCEGROUND
+
+vi docker-compose.yml
+version: '3.0'
+services:
+    web:
+        image: alicek106/composetest:web
+        ports:
+            - "80:80"
+        links:
+            - mysql:db
+        command: apachectl -DFORCEGROUND
+    mysql:
+        image: alicek106/composetest:mysql
+        command: mysqld
+
+# 이 예제
+# 프로젝트 이름을 명시하지 않으면,
+# 컨테이너들은 현재 디렉터리의 이름으로 시작하는 이름을 갖게 된다
+
+# 실행
+pwd
+/home/ubuntu
+
+docker-compose up -d
+...log...
+Creating ubuntu_mysql_1
+Creating ubuntu_web_1
+
+---
+# 위 예제
+# 사용된 이미지는, 도커 컴포즈 테스트용 이미지
+# https://hub.docker.com/alicek106/composetest/
+
+---
+# docker ps 명령어, docker-compose ps 명령어
+# 비슷함, 실행 해보자
+docker ps
+docker-compose ps
+
+---
+# 프로젝트, 서비스, 컨테이너
+
+# [프로젝트_이름]_[서비스_이름}_[서비스 내에서 컨테이너 번호]
+
+# docker-compose up -d 실행시, 프로젝트 이름을 입력하지 않으면,
+# docker-compose.yml 파일이 위치한 폴더 이름을 포로젝트 이름으로
+
+# docker-compose scale 명령어
+# docker-compose scale mysql=2
+
+---
+# docker-compose.yml 파일 특정 서비스만 실행 가능
+docker-compose up -d mysql
+
+# exec 가능
+docker-compose run web /bin/bash
+
+---
+# scale 확인
+# docker-compose ps
+
+---
+# 프로젝트 삭제
+docker-compose down
+
+---
+# 도커 컴포즈는 기본적으로, 폴더 이름으로, 프로젝트를 제어
+# -p 옵션에 프로젝트 이림을 사용해, 프로젝트 이름 명시 가능
+docker-compose -p myproject up -d
+docker-compose -p myproject ps // 확인
+docker-compose -p myproject down // 삭제
+
+---
+# 4.3.2. 도커 컴포즈 활용
+
+---
+# run 명령어를 yaml 파일로 변환하는 것이 대부분
+
+# yaml 파일은 크게,
+# 버전 정의
+# 서비스 정의
+# 볼륨 정의
+# 네트워크 정의
+# 4가지 항목
+
+---
+# 도커 컴포즈 파일과 폴더 구성 관계
+
+# 기본적으로 현재 디렉터리 "또는" 상위 디렉터리에서 docker-compose.yml 파일 찾음
+# docker-compose -f 옵션으로 파일 지정 가능
+
+---
+# 도커 컴포즈 yaml 파일 작성
+
+---
+# 1. 버전 정의
+
+# 책에서, 컴포즈 1.10 에서 사용가능한 버전 3 기준으로 사용
+# 버전3는 도커 스웜 모드와 호환되는 버전
+
+---
+# 2. 서비스 정의
+
+services:
+    <서비스 이름>:
+        image: <저장소 포함 이미지 이름>
+        links:
+            // 배열 형태, [service:alias] 형식
+            - db
+            - db:database
+            - redis
+        environment :
+            // key=value 형식 또는
+            // key:value 형식
+            - MYSQL_ROOT_PASSWORD=mysql
+            - MYSQL_ROOT_PASSWORD=mysql
+            - MYSQL_DATABASE_NAME: mysql
+        command:
+            // run 명령어 마지막 커맨드와 같음
+            // dockerfile run 처럼 json 배열로 사용 가능
+            //  ["apachectl", "-DFORCEGROUND"]
+            apachectl -DFORCEGROUND
+        depends_on:
+            // 특정 컨테이너에 대한 의존 관계를 나타냄
+            // 먼저 실행되고 나중에 실행됨
+            - mysql
+        ports:
+            // 개방 포트 설정
+            // 그러나, 단일 호스트 환경에서
+            // 8080 처럼 특정 포트 서비스 컨테이너를 연결하면
+            // 컨테이너 scale 불가
+            // 당연한듯 ?
+            - "8080"
+            - "8081-8005"
+            - "80:80"
+
+---
+# 2. services: links, depends_on
+
+# links, depends_on 모두 실행 순서만 정할 뿐
+# 컨테이너 내부 어플리케이션 준비 상태는 무관심
+# 이를 해결하기 위해
+# 컨테이너에 쉘 entrypoint 지정하는 방법이 있음
+services:
+    web:
+        ...
+        entrypoint: ./sync_script.sh mysql:3306
+
+vi sync_script.sh
+until (상태를 확인 할 수 있는 명령어); do
+    echo "depend container is not available yet"
+    sleep 1
+done
+echo "depends_on container is ready"
+
+---
+# 2. services.build 사용
+
+# 도커 이미지를 빌드해 사용
+# 빌드될 이미지의 이름은 image 항목에 정의된 이름 사용
+services:
+    <서비스 이름>:
+       build: ./composetest
+       image: alicek106/composetest:web
+
+---
+# 3. 네트워크 정의
+
+# driver
+
+# 도커 컴포즈는 기본적으로, 브리지 타입 네트워크 생성
+
+# 예제
+# mynetwork overlay 타입 네트워크 생성
+# myservice 서비스가 mynetwork 네트워크 사용
+
+version '3.0'
+services:
+  myservice:
+    image: nginx
+    networks:
+    - mynetwork
+networks:
+  mynetwork:
+    driver: overlay
+    driver_opts:
+      subnet: "255.255.255.0"
+      IPAdress: "10.0.0.2"
+
+# external
+# 기존 네트워크 사용
+# 준비된 네트워크를 사용하므로, driver, driver_ops, ipam 옵션과 함께 사용 불가
+
+services:
+  web:
+    image: alicek106/composetest:web
+    networks:
+      - alicek106_network
+networks:
+  alicek106_network
+    external: true
+
+---
+# 4. 볼륨 정의
+
+# 기본값은 local
+# 드라이버 사용은 driver_opts 사용
+# external 사용으로 기존에 생성한 드라이버 사용 가능
+# 실습 생략
+
+---
+# 5. yaml 파일 검증
+
+# docker-compose config 명령 사용
+docker-compose config
+docker-compose config -f <yaml 파일 경로>
+
+---
+# 4.3.2.2. 도커 컴포즈 네트워크
+
+---
+# yaml 파일에 네트워크 항목을 정의하지 않으면
+# 프로젝트별로
+# 브리지 타입의 네트워크를 생성한다 !
+
+# 네트워크 이름은 default 로 설정된다
+
+# docker-compose up 때 생성되고
+# docker-compose down 때 삭제된다 (defualt 네트워카가)
+
+---
+# 4.3.2.3. 도커 스웜 모드와 함께 사용하기
+
+---
+# yaml 3 버전 배포됨과 동시에 스웜 모드와 함께
+# 사용되는 개념인 스택이 도커 엔진 1.13 버전에 추가 되었다
+
+---
+# 스택
+# 스택 명령어는 docker-compose 명령어가 아니고
+# docker stack 명령어 사용
+
+# 스택은 도커 컴포즈에 생성된 것이 아니라
+# 스웜 모드 클러스터의 매니저에 의해서 생성된 것
+
+---
+# 스택 사용하기
+
+# 예시
+# docker-compose.yml 파일 생성 한 뒤,
+# 이를 스택으로 변환해보자
+
+networks: {}
+services:
+  mysql:
+    command: mysqld
+    image: alicek106/composetest:mysql
+  web:
+    command: apachectl -DFORCEGROUND
+    image: alicek106/composetest:web
+    links:
+    - mysql:db
+    ports:
+    - 80:80
+version: '3.0'
+volumes: {}
+
+# 실행, 하지만 실패 !
+docker stack deploy c docker-compose.yml mystack
+... Ignoring unsupported options: links ...
+
+# 로그를 보면
+# links, depends_on 처럼
+# 컨테이너 의존성을 정의하는 항목은 사용할 수 없다
+# 의존성 컨테이너들이 같은 호스트에서 생성되어야 하기 때문이다
+
+---
+# 생성된 스택 확인
+docker stack ls
+... name, services
+... mystack, 2
+
+docker stack ps mystack
+... id, name, image, node, desired_state
+... xxxa, mystack_web.1, alicek106/composetest:web, swarm-worker1, Running
+... xxxb, mystack_mysql.1, alicek106/composetest:mysql, swarm-worker2, Running
+
+---
+# 비슷한 명령어
+docker service ls
+docker stack services mystack
+
+# 스택은, 도커 컴포즈가 아닌, 스웜 킷에 의해 성생되므로
+# docker service scale 을 사용해, 컨테이너 수 조절 가능
+docker service scale mystack_web=2
+... mystack-web scaled to 2
+
+# 스택 삭제
+docker stack rm mystack
+... Removing service mystack_web
+... Removing service mystack_mysql
+... Removing service mystack_default // 네트워크
+
+---
+# 스택 네트워크
+
+# 도커 컴포즈 네트워크와 다르게
+# 스택 네트워크는 기본적으로 오버레이 네트워크 속성을 가짐
+# 스웜 클러스터에서 사용하도록 설정된다
+
+# 확인
+# docker network ls
+# scope swarm 확인 가능
+# 이 네트워크는 --attachable 옵션이 없기 때문에, 일반 켄테이너는 접근 불가
+docker network ls
+... network id,  name,             driver,   scope
+... xxxa1,       bridge,           bridge,   local
+... xxxa2,       docker_gwbridge,  bridge,   local
+... xxxa3,       host,             host,     local
+... xxxa4,       ingress,          overlay,  swarm // <-- "swarm"
+... xxxa5,       mystack_default,  overlay,  swarm // <-- "swarm"
+... xxxa6,       none,             null,     local
+
+---
+# todo 실습
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
